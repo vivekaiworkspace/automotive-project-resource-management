@@ -32,6 +32,24 @@ Decision:
 
 ---
 
+## Product Owner Decisions — 2026-10-11 (Policy Clarification: Public-Holiday Calendar Deferral from Implementation)
+
+Date: 2026-10-11
+Approver: Vivek (Product Owner)
+Decision:
+- Public holiday dates are deferred for now and are NOT required to continue implementation, automated testing, local development, or non-production validation.
+- Do not enter holiday dates now.
+- Do not automatically import, web-scrape, infer, or create placeholder holiday dates.
+- The base organization calendar remains `Asia/Kolkata`, Monday–Friday, 8 hours/day.
+- Individual approved leave and authorized member-specific calendar exceptions remain supported capacity inputs.
+- An authorized administrator will manually enter and validate the applicable annual holiday calendar before production use of holiday-sensitive capacity forecasts.
+- The holiday calendar must not block the main implementation sequence.
+- GATE-02 is reframed as a production-readiness configuration prerequisite, not an implementation blocker.
+- GATE-03 and GATE-04 remain production/go-live prerequisites and are unchanged.
+- CPD-009 remains deferred to Operational Hardening; CPD-007 approval status is unchanged.
+
+---
+
 ## 1. Ambiguous Requirements
 
 ### 1.1 "Product" definition — Resolved (CPD-001)
@@ -325,7 +343,7 @@ Decision:
 - **Working days:** Monday through Friday (5 days/week)
 - **Standard working hours:** 8 hours per day (40 hours/week)
 - **Organization time zone:** `Asia/Kolkata`
-- **Public holiday calendar:** Pending (GATE-02); annual calendars are maintained separately per calendar year (prior-year records preserved); Vivek will provide the validated holiday list for the applicable planning year (2026) before pilot data is loaded and capacity planning begins.
+- **Public holiday calendar:** Pending (GATE-02 production-readiness configuration prerequisite); deferred from implementation, local development, and automated testing; annual calendars are maintained separately per calendar year (prior-year records preserved); an authorized administrator will manually enter and validate the applicable annual holiday list before production use of holiday-sensitive capacity forecasts.
 
 ---
 

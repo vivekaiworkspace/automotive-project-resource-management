@@ -12,7 +12,7 @@
 >
 > **Gate Status & Required Conditions before pilot go-live:**
 > 1. GATE-01: Complete — Product Owner decisions CPD-001 through CPD-008 are recorded in the Core Pilot decision register. External approval evidence reference `[APPROVAL_EVIDENCE_REFERENCE]` is optional and may be added when available; absence does not block governance or pilot readiness (CPD-009 excluded per deferral).
-> 2. GATE-02: Pending for applicable planning year (current target: 2026). Holiday calendars are maintained separately per calendar year (prior-year records preserved). Validated official holiday list required before live capacity planning, assignment planning, or pilot data loading for that year (`[HOLIDAY_LIST]`). Source (`[HOLIDAY_LIST_SOURCE]`) and approver (`[HOLIDAY_LIST_APPROVER]`) are optional metadata.
+> 2. GATE-02: Production-readiness configuration prerequisite (Pending for applicable planning year; current target: 2026). Public-holiday calendar dates are deferred for now and do not block implementation, automated testing, local development, or non-production validation. Holiday calendars are maintained separately per calendar year (prior-year records preserved). An authorized administrator will manually enter and validate the applicable annual holiday calendar before production use of holiday-sensitive capacity forecasts or pilot go-live (`[HOLIDAY_LIST]`). Source (`[HOLIDAY_LIST_SOURCE]`) and approver (`[HOLIDAY_LIST_APPROVER]`) are optional metadata.
 > 3. GATE-03 & GATE-04: Pending CPD-010 IT confirmation of network access, backup location, and restore-test owner/date before go-live.
 >
 > **Deferred to Operational Hardening:**
@@ -99,7 +99,7 @@ The following calendar settings are confirmed for MVP Core Pilot and form the ba
 | Standard working days per week | Monday – Friday (5 days) | Confirmed base working pattern |
 | Standard working hours per day | 8 hours | 40 hours/week standard full capacity |
 | Organization time zone | `Asia/Kolkata` | Canonical organization time zone |
-| Public holidays | Annual holiday calendar (2026 pending) | **Pending (GATE-02):** Maintained separately per calendar year (prior years preserved); validated list required before data load and capacity planning for applicable year |
+| Public holidays | Annual holiday calendar (2026 deferred for implementation; production-readiness configuration prerequisite) | **Production-Readiness Prerequisite (GATE-02):** Deferred for implementation and testing; maintained separately per calendar year (prior years preserved); manual entry and validation by authorized administrator required before production use of holiday-sensitive capacity forecasts for applicable year |
 | Per-member calendar exceptions | Individual non-working days | Entered by Resource Manager or Admin; override the organization calendar for that member on specified dates |
 
 Additional rules:
@@ -115,7 +115,7 @@ Net capacity (CPD-004) is calculated per member per week. The calculation is imp
 
 **Status:** Approved by Product Owner, Vivek (2026-10-10)
 
-- [x] Approve — Mon–Fri, 8 hours/day, Time zone: `Asia/Kolkata`. Validated annual holiday calendar pending from Vivek before pilot data load for applicable planning year.
+- [x] Approve — Mon–Fri, 8 hours/day, Time zone: `Asia/Kolkata`. Public-holiday calendar configuration deferred during implementation; manual entry and validation by authorized administrator required before production use of holiday-sensitive capacity forecasts for applicable planning year.
 - [ ] Change — approved alternative:
 
 ---
@@ -444,7 +444,7 @@ The deployment model determines the container topology, the database connection 
 
 **Operational Prerequisites & Gate Status (before pilot data load and go-live):**
 - GATE-01: Complete — Consolidated PO approval record covering CPD-001 through CPD-008 recorded in decision register; external approval evidence reference `[APPROVAL_EVIDENCE_REFERENCE]` is optional and may be added when available (CPD-009 excluded per deferral).
-- GATE-02: Annual holiday calendar intake pending for applicable planning year (2026; to be provided by Vivek via intake template; `[HOLIDAY_LIST]`; source `[HOLIDAY_LIST_SOURCE]` and approver `[HOLIDAY_LIST_APPROVER]` are optional metadata; prior-year records preserved).
+- GATE-02: Production-readiness configuration prerequisite (deferred during implementation; annual holiday calendar to be manually entered and validated by authorized administrator before production use of holiday-sensitive capacity forecasts for applicable planning year 2026; `[HOLIDAY_LIST]`; source `[HOLIDAY_LIST_SOURCE]` and approver `[HOLIDAY_LIST_APPROVER]` are optional metadata; prior-year records preserved).
 - GATE-03: IT confirmation of local-login / SSO exception.
 - GATE-04: Backup destination or network share, and restore-test owner and scheduled date.
 
