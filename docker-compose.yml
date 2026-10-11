@@ -1,0 +1,134 @@
+# ==============================================================================
+# Automotive Project & Resource Management System
+# Core Pilot Foundation - Docker Compose Environment
+# Reference: docs/ARCHITECTURE.md § 5, docs/CORE-PILOT-DECISIONS.md CPD-010
+# ==============================================================================
+
+services:
+  # ----------------------------------------------------------------------------
+  # PostgreSQL Database Service (PostgreSQL 16)
+  # ----------------------------------------------------------------------------
+  db:
+    image: postgres:16-alpine
+    container_name: rpm-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-automotive_rpm}
+      POSTGRES_USER: ${DB_USER:-rpm_app}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-rpm_secure_dev_password_2026!}
+      TZ: ${APP_TIMEZONE:-Asia/Kolkata}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-rpm_app} -d ${DB_NAME:-automotive_rpm}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    networks:
+      - rpm-network
+
+  # ----------------------------------------------------------------------------
+  # Backend Modular Monolith API Service (Node.js 20)
+  # ----------------------------------------------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: rpm-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      APP_NAME: ${APP_NAME:-Automotive-RPM-Core-Pilot}
+      APP_PORT: 3000
+      APP_HOST: 0.0.0.0
+      APP_TIMEZONE: ${APP_TIMEZONE:-Asia/Kolkata}
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-automotive_rpm}
+      DB_USER: ${DB_USER:-rpm_app}
+      DB_PASSWORD: ${DB_PASSWORD:-rpm_secure_dev_password_2026!}
+      DB_SSL: ${DB_SSL:-false}
+      SESSION_SECRET: ${SESSION_SECRET:-dev_insecure_secret_key_change_in_production_min_32_chars!}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin.pilot@ems-ecu.internal}
+      ADMIN_INITIAL_PASSWORD: ${ADMIN_INITIAL_PASSWORD:-InitialAdminPass_MustChangeOnFirstLogin123!}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    ports:
+      - "${BACKEND_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://127.0.0.1:3000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - rpm-network
+
+  # ----------------------------------------------------------------------------
+  # Dedicated Background Worker Service (Node.js 20)
+  # ----------------------------------------------------------------------------
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: rpm-worker
+    command: ["npm", "run", "worker"]
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      APP_NAME: ${APP_NAME:-Automotive-RPM-Core-Pilot}
+      APP_TIMEZONE: ${APP_TIMEZONE:-Asia/Kolkata}
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-automotive_rpm}
+      DB_USER: ${DB_USER:-rpm_app}
+      DB_PASSWORD: ${DB_PASSWORD:-rpm_secure_dev_password_2026!}
+      DB_SSL: ${DB_SSL:-false}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    networks:
+      - rpm-network
+
+  # ----------------------------------------------------------------------------
+  # Frontend Web UI & Reverse Proxy Service (Nginx 1.27)
+  # ----------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: rpm-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    networks:
+      - rpm-network
+
+# ------------------------------------------------------------------------------
+# Persistent Storage Volumes
+# ------------------------------------------------------------------------------
+volumes:
+  postgres_data:
+    driver: local
+
+# ------------------------------------------------------------------------------
+# Internal Container Network
+# ------------------------------------------------------------------------------
+networks:
+  rpm-network:
+    driver: bridge

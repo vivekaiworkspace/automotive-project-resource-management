@@ -1,0 +1,30 @@
+{
+  "name": "automotive-rpm-backend",
+  "version": "0.1.0",
+  "description": "Backend API Service for Automotive Project & Resource Management System (MVP Core Pilot)",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "worker": "node src/worker.js",
+    "dev": "node --watch src/server.js",
+    "migrate": "node src/db/migrate.js",
+    "migrate:status": "node src/db/migrate.js --status",
+    "test": "node --test tests/health.test.js tests/migrations.test.js tests/config.test.js tests/domain_capacity.test.js tests/app_routes.test.js tests/auth.test.js tests/core_records_step3.test.js tests/activities_step4.test.js tests/capacity_conflicts_step5.test.js tests/step5_remediation.test.js",
+    "test:bun": "bun test"
+  },
+  "keywords": [
+    "automotive",
+    "ecu",
+    "resource-management",
+    "pilot"
+  ],
+  "author": "Antigravity Engineering",
+  "license": "UNLICENSED",
+  "private": true,
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "hash-wasm": "^4.12.0",
+    "pg": "^8.13.1"
+  }
+}

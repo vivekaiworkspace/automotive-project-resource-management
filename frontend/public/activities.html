@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Automotive Project & Resource Management — Activity Planning & Execution Workflow">
+  <meta name="theme-color" content="#0b0f19">
+  <title>Activity Planning & Execution — Core Pilot</title>
+
+  <!-- Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/admin.css">
+  <link rel="stylesheet" href="css/activities.css">
+</head>
+<body>
+  <!-- Ambient background glow accents -->
+  <div class="bg-glow bg-glow-1"></div>
+  <div class="bg-glow bg-glow-2"></div>
+
+  <div class="app-layout">
+    <!-- Top Header -->
+    <header class="app-header">
+      <div class="header-brand">
+        <div class="brand-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="9 11 12 14 22 4"></polyline>
+            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+          </svg>
+        </div>
+        <div class="brand-details">
+          <span class="brand-badge">CORE PILOT WORKFLOW</span>
+          <h1 class="brand-title">Activity Planning &amp; Execution</h1>
+        </div>
+      </div>
+
+      <div class="header-status">
+        <a href="/" class="btn-auth-action" style="text-decoration: none; padding: 6px 12px; font-size: 0.8rem;">
+          &larr; Baseline
+        </a>
+        <a href="/admin.html" class="btn-auth-action btn-cyan" id="nav-admin-link" style="text-decoration: none; padding: 6px 12px; font-size: 0.8rem; display: none;">
+          Admin Setup
+        </a>
+        <div id="user-header-profile" style="display: flex; align-items: center; gap: 10px;">
+          <div class="user-avatar-circle" id="header-avatar" style="width: 32px; height: 32px; font-size: 0.85rem;">?</div>
+          <span id="header-user-name" style="font-size: 0.85rem; font-weight: 600;">Loading...</span>
+          <button id="btn-logout" class="btn-auth-action btn-rose" style="padding: 4px 10px; font-size: 0.75rem;">Sign Out</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Global Notification Banner -->
+    <div id="alert-banner" class="admin-alert-banner">
+      <span id="alert-message">Alert message</span>
+      <button onclick="document.getElementById('alert-banner').style.display='none'" style="background: none; border: none; color: inherit; cursor: pointer; font-size: 1.1rem;">&times;</button>
+    </div>
+
+    <!-- Main Navigation Bar -->
+    <nav class="admin-nav-bar" id="activities-tabs-nav">
+      <button class="admin-nav-btn active" data-tab="tab-project-activities">Project Activities</button>
+      <button class="admin-nav-btn" data-tab="tab-hierarchy">Activity Hierarchy</button>
+      <button class="admin-nav-btn" data-tab="tab-my-activities" id="tab-btn-my">My Activities</button>
+      <button class="admin-nav-btn" data-tab="tab-team-activities" id="tab-btn-team">Team Activities</button>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="app-main">
+
+      <!-- 1. Project Activities Tab -->
+      <section id="tab-project-activities" class="tab-content active">
+        <div class="admin-card">
+          <div class="admin-card-header">
+            <div>
+              <h2 class="admin-card-title">Project Activity Catalog</h2>
+              <p class="admin-card-subtitle">Authoritative activity planning and lifecycle control within assigned project scope</p>
+            </div>
+            <div class="admin-card-actions">
+              <button id="btn-open-create-activity" class="btn btn-primary" style="display: none;">
+                + Create Activity
+              </button>
+            </div>
+          </div>
+
+          <!-- Filter Toolbar -->
+          <div class="filter-bar">
+            <div class="filter-group">
+              <label for="filter-project">Project Scope</label>
+              <select id="filter-project" class="filter-select"></select>
+            </div>
+            <div class="filter-group">
+              <label for="filter-phase">Phase</label>
+              <select id="filter-phase" class="filter-select">
+                <option value="">All Phases</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label for="filter-status">Status</label>
+              <select id="filter-status" class="filter-select">
+                <option value="">All Statuses</option>
+                <option value="DRAFT">DRAFT</option>
+                <option value="READY_FOR_PLANNING">READY_FOR_PLANNING</option>
+                <option value="PLANNED">PLANNED</option>
+                <option value="IN_PROGRESS">IN_PROGRESS</option>
+                <option value="BLOCKED">BLOCKED</option>
+                <option value="DONE">DONE</option>
+                <option value="CANCELLED">CANCELLED</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label for="filter-type">Type</label>
+              <select id="filter-type" class="filter-select">
+                <option value="">All Types</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label for="filter-priority">Priority</label>
+              <select id="filter-priority" class="filter-select">
+                <option value="">All Priorities</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label for="filter-hierarchy">Hierarchy</label>
+              <select id="filter-hierarchy" class="filter-select">
+                <option value="">All Levels</option>
+                <option value="true">Parents Only</option>
+                <option value="false">Children Only</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label for="filter-archived">Archived</label>
+              <select id="filter-archived" class="filter-select">
+                <option value="false">Active Only</option>
+                <option value="true">Include Archived</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Activity List Table -->
+          <div class="table-responsive">
+            <table class="admin-table" id="table-project-activities">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Title</th>
+                  <th>Phase</th>
+                  <th>Status</th>
+                  <th>Type / Priority</th>
+                  <th>Owner</th>
+                  <th>Remaining / Est</th>
+                  <th>Dates</th>
+                  <th style="text-align: right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-project-activities">
+                <tr><td colspan="9" style="text-align: center; color: var(--text-dim);">Loading activities...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. Hierarchy View Tab -->
+      <section id="tab-hierarchy" class="tab-content">
+        <div class="admin-card">
+          <div class="admin-card-header">
+            <div>
+              <h2 class="admin-card-title">Activity Hierarchy &amp; Roll-up Explorer</h2>
+              <p class="admin-card-subtitle">Deterministic two-level parent-child hierarchy with automated remaining effort and date roll-up</p>
+            </div>
+            <div class="admin-card-actions">
+              <select id="hierarchy-project-select" class="filter-select"></select>
+            </div>
+          </div>
+
+          <div id="hierarchy-tree-container" class="hierarchy-tree">
+            <p style="color: var(--text-dim); text-align: center;">Select a project to explore activity hierarchy.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. My Activities Tab -->
+      <section id="tab-my-activities" class="tab-content">
+        <div class="admin-card">
+          <div class="admin-card-header">
+            <div>
+              <h2 class="admin-card-title">My Assigned Activities</h2>
+              <p class="admin-card-subtitle">Activities where you are the designated owner; execution progress and blocker tracking</p>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Title</th>
+                  <th>Project / Phase</th>
+                  <th>Status</th>
+                  <th>Remaining Effort</th>
+                  <th>Dates</th>
+                  <th>Blocker Info</th>
+                  <th style="text-align: right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-my-activities">
+                <tr><td colspan="8" style="text-align: center; color: var(--text-dim);">Loading your activities...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. Team Activities Tab -->
+      <section id="tab-team-activities" class="tab-content">
+        <div class="admin-card">
+          <div class="admin-card-header">
+            <div>
+              <h2 class="admin-card-title">Team Activities</h2>
+              <p class="admin-card-subtitle">Activities owned by active members of your team; team progress and blocker governance</p>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Title</th>
+                  <th>Project / Phase</th>
+                  <th>Status</th>
+                  <th>Owner</th>
+                  <th>Remaining Effort</th>
+                  <th>Dates</th>
+                  <th>Blocker Info</th>
+                  <th style="text-align: right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-team-activities">
+                <tr><td colspan="9" style="text-align: center; color: var(--text-dim);">Loading team activities...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ======================================================================= -->
+  <!-- MODAL: Create / Edit Activity -->
+  <!-- ======================================================================= -->
+  <div id="modal-activity-form" class="modal-overlay" style="display: none;">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3 id="modal-activity-title" style="font-size: 1.15rem; font-weight: 700; color: var(--text-main);">Create Activity</h3>
+        <button onclick="closeActivityFormModal()" style="background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 1.4rem;">&times;</button>
+      </div>
+      <form id="form-activity" class="modal-body" style="display: flex; flex-direction: column; gap: 16px;">
+        <input type="hidden" id="act-form-id">
+        <input type="hidden" id="act-form-version">
+
+        <div class="form-grid-2">
+          <div class="filter-group">
+            <label for="act-form-project">Project *</label>
+            <select id="act-form-project" class="filter-select" required></select>
+          </div>
+          <div class="filter-group">
+            <label for="act-form-readable-id">Readable ID <span class="field-immutable-indicator">(Immutable, generated)</span></label>
+            <input type="text" id="act-form-readable-id" class="filter-input" placeholder="Generated on save" readonly style="opacity: 0.7;">
+          </div>
+        </div>
+
+        <div class="filter-group">
+          <label for="act-form-title">Title *</label>
+          <input type="text" id="act-form-title" class="filter-input" placeholder="Activity Title" required minlength="2">
+        </div>
+
+        <div class="form-grid-2">
+          <div class="filter-group">
+            <label for="act-form-phase">Phase (Optional)</label>
+            <select id="act-form-phase" class="filter-select">
+              <option value="">No Phase</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label for="act-form-parent">Parent Activity <span class="field-immutable-indicator">(Max 1 Level)</span></label>
+            <select id="act-form-parent" class="filter-select">
+              <option value="">No Parent (Standalone / Root)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-grid-2">
+          <div class="filter-group">
+            <label for="act-form-type">Activity Type *</label>
+            <select id="act-form-type" class="filter-select" required></select>
+          </div>
+          <div class="filter-group">
+            <label for="act-form-priority">Priority *</label>
+            <select id="act-form-priority" class="filter-select" required></select>
+          </div>
+        </div>
+
+        <div class="form-grid-2">
+          <div class="filter-group">
+            <label for="act-form-orig-est">Original Estimate (Hours) <span class="field-immutable-indicator" id="orig-est-immutable-tag">(Immutable once planned)</span></label>
+            <input type="number" id="act-form-orig-est" class="filter-input" step="0.25" min="0" placeholder="e.g. 40.0">
+          </div>
+          <div class="filter-group">
+            <label for="act-form-curr-est">Current Estimate (Hours)</label>
+            <input type="number" id="act-form-curr-est" class="filter-input" step="0.25" min="0" placeholder="Defaults to original">
+          </div>
+        </div>
+
+        <div class="form-grid-2">
+          <div class="filter-group">
+            <label for="act-form-rem-eff">Remaining Effort (Hours) <span class="field-immutable-indicator" id="rem-eff-rollup-tag"></span></label>
+            <input type="number" id="act-form-rem-eff" class="filter-input" step="0.25" min="0" placeholder="Defaults to current">
+          </div>
+          <div class="filter-group">
+            <label for="act-form-owner">Owner (Active User)</label>
+            <select id="act-form-owner" class="filter-select">
+              <option value="">Unassigned</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-grid-2">
+          <div class="filter-group">
+            <label for="act-form-start">Start Date <span class="field-immutable-indicator" id="start-rollup-tag"></span></label>
+            <input type="date" id="act-form-start" class="filter-input">
+          </div>
+          <div class="filter-group">
+            <label for="act-form-due">Due Date <span class="field-immutable-indicator" id="due-rollup-tag"></span></label>
+            <input type="date" id="act-form-due" class="filter-input">
+          </div>
+        </div>
+
+        <div class="form-grid-2">
+          <div class="filter-group">
+            <label for="act-form-forecast">Forecast Finish Date</label>
+            <input type="date" id="act-form-forecast" class="filter-input">
+          </div>
+          <div class="filter-group">
+            <label for="act-form-blocker">Blocker Description</label>
+            <input type="text" id="act-form-blocker" class="filter-input" placeholder="Optional notes or blocker detail">
+          </div>
+        </div>
+
+        <!-- Material Change Explanatory Reason Box -->
+        <div id="act-form-material-reason-box" style="display: none; padding: 12px; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: var(--radius-md);">
+          <label for="act-form-reason" style="color: #fde68a; font-weight: 600; font-size: 0.8rem; display: block; margin-bottom: 6px;">
+            ⚠️ Material Change Detected (Requires minimum 10-character reason):
+          </label>
+          <input type="text" id="act-form-reason" class="filter-input" style="width: 100%;" placeholder="State reason for schedule or estimate change (>3 days or >20%)">
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn" onclick="closeActivityFormModal()" style="background: rgba(255,255,255,0.05); color: var(--text-muted);">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="btn-save-activity">Save Activity</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ======================================================================= -->
+  <!-- MODAL: Status Transition -->
+  <!-- ======================================================================= -->
+  <div id="modal-status-transition" class="modal-overlay" style="display: none;">
+    <div class="modal-container" style="max-width: 520px;">
+      <div class="modal-header">
+        <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--text-main);">Transition Activity Status</h3>
+        <button onclick="closeStatusModal()" style="background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 1.4rem;">&times;</button>
+      </div>
+      <form id="form-status-transition" class="modal-body" style="display: flex; flex-direction: column; gap: 16px;">
+        <input type="hidden" id="trans-act-id">
+        <input type="hidden" id="trans-act-version">
+
+        <div class="filter-group">
+          <label>Activity</label>
+          <div id="trans-act-label" style="font-weight: 600; color: var(--accent-cyan); font-family: 'JetBrains Mono', monospace;">-</div>
+        </div>
+
+        <div class="form-grid-2">
+          <div class="filter-group">
+            <label>Current Status</label>
+            <div id="trans-from-status" class="activity-badge status-draft" style="width: fit-content;">DRAFT</div>
+          </div>
+          <div class="filter-group">
+            <label for="trans-target-status">Target Status *</label>
+            <select id="trans-target-status" class="filter-select" required></select>
+          </div>
+        </div>
+
+        <!-- Blocker description input -->
+        <div id="trans-blocker-box" style="display: none;" class="filter-group">
+          <label for="trans-blocker-text" style="color: #f87171;">Blocker Description * (Min 10 chars)</label>
+          <textarea id="trans-blocker-text" class="filter-input" rows="3" placeholder="Describe specific issue or constraint causing the block..."></textarea>
+        </div>
+
+        <!-- Explanatory reason input -->
+        <div id="trans-reason-box" style="display: none;" class="filter-group">
+          <label for="trans-reason-text" style="color: #fde68a;">Transition Reason * (Min 10 chars)</label>
+          <textarea id="trans-reason-text" class="filter-input" rows="3" placeholder="Explain rationale for status change (required for Done, Cancelled, Reopening, In Progress -> Planned)..."></textarea>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn" onclick="closeStatusModal()" style="background: rgba(255,255,255,0.05); color: var(--text-muted);">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="btn-submit-transition">Confirm Transition</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ======================================================================= -->
+  <!-- MODAL: Activity Detail & Audit History -->
+  <!-- ======================================================================= -->
+  <div id="modal-activity-detail" class="modal-overlay" style="display: none;">
+    <div class="modal-container" style="max-width: 840px;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <h3 id="detail-modal-title" style="font-size: 1.15rem; font-weight: 700; color: var(--text-main);">Activity Details</h3>
+          <span id="detail-modal-status" class="activity-badge status-draft">DRAFT</span>
+        </div>
+        <button onclick="closeDetailModal()" style="background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 1.4rem;">&times;</button>
+      </div>
+
+      <div class="modal-body" style="display: flex; flex-direction: column; gap: 20px;">
+        <!-- Header overview card -->
+        <div style="background: rgba(18, 26, 43, 0.6); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle); display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;">
+          <div>
+            <span style="font-size: 0.72rem; color: var(--text-dim); text-transform: uppercase;">Readable ID</span>
+            <div id="detail-readable-id" style="font-family: 'JetBrains Mono', monospace; font-weight: 700; color: var(--accent-cyan);">-</div>
+          </div>
+          <div>
+            <span style="font-size: 0.72rem; color: var(--text-dim); text-transform: uppercase;">Project</span>
+            <div id="detail-project" style="font-weight: 600;">-</div>
+          </div>
+          <div>
+            <span style="font-size: 0.72rem; color: var(--text-dim); text-transform: uppercase;">Phase</span>
+            <div id="detail-phase">-</div>
+          </div>
+          <div>
+            <span style="font-size: 0.72rem; color: var(--text-dim); text-transform: uppercase;">Owner</span>
+            <div id="detail-owner">-</div>
+          </div>
+          <div>
+            <span style="font-size: 0.72rem; color: var(--text-dim); text-transform: uppercase;">Type / Priority</span>
+            <div id="detail-type-priority">-</div>
+          </div>
+          <div>
+            <span style="font-size: 0.72rem; color: var(--text-dim); text-transform: uppercase;">Remaining / Orig / Curr</span>
+            <div id="detail-estimates" style="font-family: 'JetBrains Mono', monospace;">-</div>
+          </div>
+          <div>
+            <span style="font-size: 0.72rem; color: var(--text-dim); text-transform: uppercase;">Start — Due Date</span>
+            <div id="detail-dates">-</div>
+          </div>
+          <div>
+            <span style="font-size: 0.72rem; color: var(--text-dim); text-transform: uppercase;">Forecast Finish</span>
+            <div id="detail-forecast">-</div>
+          </div>
+        </div>
+
+        <!-- Blocker Callout if present -->
+        <div id="detail-blocker-callout" style="display: none; padding: 12px; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: var(--radius-md);">
+          <span style="font-size: 0.75rem; font-weight: 700; color: #f87171; text-transform: uppercase;">Active Blocker:</span>
+          <p id="detail-blocker-desc" style="color: #fca5a5; font-size: 0.9rem; margin-top: 4px;"></p>
+        </div>
+
+        <!-- Direct Children Section -->
+        <div id="detail-children-section" style="display: none;">
+          <h4 style="font-size: 0.95rem; font-weight: 700; color: var(--text-main); margin-bottom: 8px;">Child Sub-Activities</h4>
+          <div class="table-responsive">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Title</th>
+                  <th>Status</th>
+                  <th>Owner</th>
+                  <th>Remaining</th>
+                  <th>Dates</th>
+                </tr>
+              </thead>
+              <tbody id="detail-children-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Immutable Audit Trail Section -->
+        <div>
+          <h4 style="font-size: 0.95rem; font-weight: 700; color: var(--text-main); margin-bottom: 8px;">Immutable Audit History</h4>
+          <div class="table-responsive" style="max-height: 260px; overflow-y: auto;">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Action</th>
+                  <th>Actor</th>
+                  <th>Reason / Details</th>
+                </tr>
+              </thead>
+              <tbody id="detail-audit-tbody">
+                <tr><td colspan="4" style="text-align: center; color: var(--text-dim);">Loading audit records...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="justify-content: space-between;">
+        <div>
+          <button id="detail-btn-archive" class="btn-auth-action btn-rose" style="display: none;">Archive Activity</button>
+          <button id="detail-btn-restore" class="btn-auth-action btn-cyan" style="display: none;">Restore Activity</button>
+        </div>
+        <button type="button" class="btn" onclick="closeDetailModal()" style="background: rgba(255,255,255,0.05); color: var(--text-muted);">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Client-side Logic -->
+  <script src="js/activities.js"></script>
+</body>
+</html>

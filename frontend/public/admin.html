@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Automotive Project & Resource Management — Admin Setup and Configurable Records">
+  <meta name="theme-color" content="#0b0f19">
+  <title>Admin Setup & Configurable Records — Core Pilot</title>
+  
+  <!-- Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  
+  <!-- Styling -->
+  <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+  <!-- Ambient background lighting -->
+  <div class="bg-glow bg-glow-1"></div>
+  <div class="bg-glow bg-glow-2"></div>
+
+  <div class="app-layout">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-brand">
+        <div class="brand-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+          </svg>
+        </div>
+        <div class="brand-details">
+          <span class="brand-badge">CORE PILOT CONFIGURATION</span>
+          <h1 class="brand-title">Admin Setup &amp; Records Management</h1>
+        </div>
+      </div>
+
+      <div class="header-status">
+        <a href="/" class="btn-auth-action" style="text-decoration: none; padding: 6px 12px; font-size: 0.8rem;">
+          &larr; System Baseline
+        </a>
+        <a href="/activities.html" class="btn-auth-action btn-cyan" style="text-decoration: none; padding: 6px 12px; font-size: 0.8rem; background: rgba(14, 165, 233, 0.2); border-color: #38bdf8;">
+          Activities Workflow &rarr;
+        </a>
+        <div id="user-header-profile" style="display: flex; align-items: center; gap: 10px;">
+          <div class="user-avatar-circle" id="header-avatar" style="width: 32px; height: 32px; font-size: 0.85rem;">?</div>
+          <span id="header-user-name" style="font-size: 0.85rem; font-weight: 600;">Loading...</span>
+          <a href="/change-password.html" class="btn-auth-action" style="text-decoration: none; padding: 4px 8px; font-size: 0.75rem;">Password</a>
+          <button id="btn-logout" class="btn-auth-action btn-rose" style="padding: 4px 10px; font-size: 0.75rem;">Sign Out</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Global Notification Banner -->
+    <div id="alert-banner" class="admin-alert-banner">
+      <span id="alert-message">Alert message</span>
+      <button onclick="document.getElementById('alert-banner').style.display='none'" style="background: none; border: none; color: inherit; cursor: pointer; font-size: 1.1rem;">&times;</button>
+    </div>
+
+    <!-- Main Navigation Bar -->
+    <nav class="admin-nav-bar" id="admin-tabs-nav">
+      <button class="admin-nav-btn active" data-tab="tab-profile">Current Profile</button>
+      <button class="admin-nav-btn role-admin role-rm" data-tab="tab-users">Users &amp; Roles</button>
+      <button class="admin-nav-btn role-admin role-rm role-tl" data-tab="tab-teams">Teams &amp; Members</button>
+      <button class="admin-nav-btn role-admin" data-tab="tab-products">Products</button>
+      <button class="admin-nav-btn role-admin role-pm" data-tab="tab-projects">Projects</button>
+      <button class="admin-nav-btn role-admin role-pm" data-tab="tab-phases">Phases</button>
+      <button class="admin-nav-btn role-admin role-pm" data-tab="tab-tags">Work-Area Tags</button>
+      <button class="admin-nav-btn role-admin" data-tab="tab-pm-scope">PM Scope Mappings</button>
+      <button class="admin-nav-btn role-admin" data-tab="tab-ref-data">Configurable Reference Data</button>
+      <button class="admin-nav-btn role-admin role-pm" data-tab="tab-custom-fields">Custom Fields</button>
+      <button class="admin-nav-btn role-admin" data-tab="tab-audit">Audit Trail</button>
+    </nav>
+
+    <!-- Content Sections -->
+    <main class="app-main">
+
+      <!-- 1. Current Profile View -->
+      <section id="tab-profile" class="tab-content active">
+        <div class="admin-card">
+          <div class="admin-card-header">
+            <div>
+              <h2 class="admin-card-title">User Account Profile</h2>
+              <p class="admin-card-subtitle">Session authentication and RBAC/SBAC security details</p>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
+            <div class="spec-row"><span class="spec-name">Full Name:</span><span class="spec-value bold" id="prof-name">-</span></div>
+            <div class="spec-row"><span class="spec-name">Email:</span><span class="spec-value mono" id="prof-email">-</span></div>
+            <div class="spec-row"><span class="spec-name">User ID:</span><span class="spec-value mono" id="prof-id">-</span></div>
+            <div class="spec-row"><span class="spec-name">Assigned Roles:</span><span class="spec-value" id="prof-roles">-</span></div>
+            <div class="spec-row"><span class="spec-name">Account Status:</span><span class="spec-value" id="prof-status">-</span></div>
+            <div class="spec-row"><span class="spec-name">Password Change Required:</span><span class="spec-value" id="prof-pwd-req">-</span></div>
+          </div>
+          <div style="margin-top: 20px;">
+            <h4 style="font-size: 0.85rem; text-transform: uppercase; color: var(--text-dim); margin-bottom: 8px;">Active Scopes (SBAC):</h4>
+            <div id="prof-scopes-container" style="display: flex; gap: 8px; flex-wrap: wrap;"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. Users & Roles View -->
+      <section id="tab-users" class="tab-content" style="display: none;">
+        <div class="admin-card">
+          <div class="admin-card-header">
+            <div>
+              <h2 class="admin-card-title">User Management</h2>
+              <p class="admin-card-subtitle">User directory, role assignment, activation status, and optimistic locking</p>
+            </div>
+            <div class="admin-card-actions role-admin">
+              <button class="btn btn-primary" onclick="openCreateUserModal()">+ New User</button>
+            </div>
+          </div>
+          <div style="overflow-x: auto;">
+            <table class="admin-table" id="users-table">
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Roles</th>
+                  <th>Status</th>
+                  <th>Version</th>
+                  <th>Created</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="users-table-body">
+                <tr><td colspan="6" style="text-align: center; color: var(--text-dim);">Loading users...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. Teams & Memberships View -->
+      <section id="tab-teams" class="tab-content" style="display: none;">
+        <div class="admin-card">
+          <div class="admin-card-header">
+            <div>
+              <h2 class="admin-card-title">Teams &amp; Resource Organization</h2>
+              <p class="admin-card-subtitle">Engineering teams, lead allocations, and active memberships</p>
+            </div>
+            <div class="admin-card-actions role-admin">
+              <button class="btn btn-primary" onclick="openCreateTeamModal()">+ New Team</button>
+            </div>
+          </div>
+          <div style="overflow-x: auto;">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Code</th>
+                  <th>Name</th>
+                  <th>Description</th>
+                  <th>Status</th>
+                  <th>Version</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="teams-table-body">
+                <tr><td colspan="6" style="text-align: center; color: var(--text-dim);">Loading teams...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="admin-card" id="team-members-section" style="display: none;">
+          <div class="admin-card-header">
+            <div>
+              <h3 class="admin-card-title" id="team-members-title">Team Memberships</h3>
+              <p class="admin-card-subtitle">Active member assignments (duplicate prevention enforced)</p>
+            </div>
+            <div class="admin-card-actions">
+              <button class="btn btn-primary" onclick="openAddMemberModal()">+ Add Member</button>
+            </div>
+          </div>
+          <div style="overflow-x: auto;">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Member Name</th>
+                  <th>Email</th>
+                  <th>Role in Team</th>
+                  <th>Active From</th>
+                  <th>Active To</th>
+                  <th>Version</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="members-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. Products View -->
+      <section id="tab-products" class="tab-content" style="display: none;">
+        <div class="admin-card">
+          <div class="admin-card-header">
+            <div>
+              <h2 class="admin-card-title">Product Hierarchy (Top-Level)</h2>
+              <p class="admin-card-subtitle">EMS ECU Development products (Logical archival enforced, no physical deletion)</p>
+            </div>
+            <div class="admin-card-actions role-admin">
+              <button class="btn btn-primary" onclick="openCreateProductModal()">+ New Product</button>
+            </div>
+          </div>
+          <div style="overflow-x: auto;">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Code</th>
+                  <th>Name</th>
+                  <th>Product Type</th>
+                  <th>Status</th>
+                  <th>Version</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="products-table-body">
+                <tr><td colspan="6" style="text-align: center; color: var(--text-dim);">Loading products...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- 5. Projects View -->
+      <section id="tab-projects" class="tab-content" style="display: none;">
+        <div class="admin-card">
+          <div class="admin-card-header">
+            <div>
+              <h2 class="admin-card-title">Projects Catalog</h2>
+              <p class="admin-card-subtitle">Pilot projects scoped to active products with optimistic concurrency control</p>
+            </div>
+            <div class="admin-card-actions role-admin">
+              <button class="btn btn-primary" onclick="openCreateProjectModal()">+ New Project</button>
+            </div>
+          </div>
+          <div style="overflow-x: auto;">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Code</th>
+                  <th>Name</th>
+                  <th>Product</th>
+                  <th>Priority</th>
+                  <th>Status</th>
+                  <th>Planned Dates</th>
+                  <th>Version</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="projects-table-body">
+                <tr><td colspan="8" style="text-align: center; color: var(--text-dim);">Loading projects...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- 6. Phases & Workstreams View -->
+      <section id="tab-phases" class="tab-content" style="display: none;">
+        <div class="admin-card">
+          <div class="admin-card-header">
+            <div>
+              <h2 class="admin-card-title">Project Phases / Workstreams</h2>
+              <p class="admin-card-subtitle">Unique sequence numbers per project; finish date cannot precede start date</p>
+            </div>
+            <div class="admin-card-actions">
+              <select id="phase-project-selector" class="admin-form-select" style="width: 250px;" onchange="loadPhasesForSelectedProject()">
+                <option value="">Select a Project...</option>
+              </select>
+              <button class="btn btn-primary" onclick="openCreatePhaseModal()">+ New Phase</button>
+            </div>
+          </div>
+          <div style="overflow-x: auto;">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Seq #</th>
+                  <th>Phase Name</th>
+                  <th>Planned Start</th>
+                  <th>Planned Finish</th>
+                  <th>Version</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="phases-table-body">
+                <tr><td colspan="6" style="text-align: center; color: var(--text-dim);">Select a project above to view phases</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- 7. Work-Area Tags View -->
+      <section id="tab-tags" class="tab-content" style="display: none;">
+        <div class="admin-card">
+          <div class="admin-card-header">
+            <div>
+              <h2 class="admin-card-title">Work-Area Tags (CPD-001)</h2>
+              <p class="admin-card-subtitle">14 organization tags; multiple assignment supported; logical archive only</p>
+            </div>
+            <div class="admin-card-actions role-admin">
+              <button class="btn btn-primary" onclick="openCreateTagModal()">+ New Tag</button>
+            </div>
+          </div>
+          <div style="overflow-x: auto;">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Order</th>
+                  <th>Code</th>
+                  <th>Tag Name</th>
+                  <th>Status</th>
+                  <th>Version</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="tags-table-body">
+                <tr><td colspan="6" style="text-align: center; color: var(--text-dim);">Loading tags...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="admin-card">
+          <div class="admin-card-header">
+            <div>
+              <h3 class="admin-card-title">Project-to-Tag Mappings</h3>
+              <p class="admin-card-subtitle">Assign/remove work-area tags for projects within your scope</p>
+            </div>
+            <div class="admin-card-actions">
+              <select id="tag-project-selector" class="admin-form-select" style="width: 220px;" onchange="loadProjectTagsForSelected()">
+                <option value="">Select Project...</option>
+              </select>
+              <select id="tag-to-assign-selector" class="admin-form-select" style="width: 220px;">
+                <option value="">Select Tag to Assign...</option>
+              </select>
+              <button class="btn btn-primary" onclick="assignTagToProject()">Assign Tag</button>
+            </div>
+          </div>
+          <div id="project-tags-badges" style="display: flex; gap: 8px; flex-wrap: wrap; padding: 12px 0;">
+            <span style="color: var(--text-dim); font-size: 0.85rem;">Select a project above to inspect assigned tags</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- 8. PM Scope Mappings View -->
+      <section id="tab-pm-scope" class="tab-content" style="display: none;">
+        <div class="admin-card">
+          <div class="admin-card-header">
+            <div>
+              <h2 class="admin-card-title">Project Manager Scope Mapping (SBAC)</h2>
+              <p class="admin-card-subtitle">Many-to-many relationship: Project Managers access only explicitly granted projects</p>
+            </div>
+            <div class="admin-card-actions role-admin">
+              <select id="pm-user-selector" class="admin-form-select" style="width: 220px;">
+                <option value="">Select PM User...</option>
+              </select>
+              <select id="pm-proj-selector" class="admin-form-select" style="width: 220px;">
+                <option value="">Select Project...</option>
+              </select>
+              <button class="btn btn-primary" onclick="assignPmScope()">Grant Scope</button>
+            </div>
+          </div>
+          <div style="overflow-x: auto;">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Project Code</th>
+                  <th>Project Name</th>
+                  <th>Project Manager</th>
+                  <th>PM Email</th>
+                  <th>Granted At</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="pm-scopes-table-body">
+                <tr><td colspan="6" style="text-align: center; color: var(--text-dim);">Loading scope mappings...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- 9. Configurable Reference Data View -->
+      <section id="tab-ref-data" class="tab-content" style="display: none;">
+        <div class="admin-card">
+          <div class="admin-card-header">
+            <div>
+              <h2 class="admin-card-title">Configurable Reference Data</h2>
+              <p class="admin-card-subtitle">Organization lists with versioning, ordering, archival, and reactivation</p>
+            </div>
+            <div class="admin-card-actions">
+              <select id="ref-category-selector" class="admin-form-select" style="width: 240px;" onchange="loadReferenceDataForSelectedCategory()">
+                <option value="PRODUCT_TYPE">Product Types</option>
+                <option value="PRODUCT_PRIORITY">Product Priorities</option>
+                <option value="PROJECT_PRIORITY">Project Priorities</option>
+                <option value="PROJECT_STATUS">Project Statuses</option>
+                <option value="ACTIVITY_TYPE">Activity Types</option>
+                <option value="ACTIVITY_PRIORITY">Activity Priorities</option>
+                <option value="WORK_AREA_TAG">Work-Area Tags</option>
+              </select>
+              <button class="btn btn-primary role-admin" onclick="openCreateReferenceDataModal()">+ New Item</button>
+            </div>
+          </div>
+          <div style="overflow-x: auto;">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Order</th>
+                  <th>Code</th>
+                  <th>Display Name</th>
+                  <th>Status</th>
+                  <th>Version</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="ref-data-table-body">
+                <tr><td colspan="6" style="text-align: center; color: var(--text-dim);">Loading reference data...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- 10. Product-Type Custom Fields View -->
+      <section id="tab-custom-fields" class="tab-content" style="display: none;">
+        <div class="admin-card">
+          <div class="admin-card-header">
+            <div>
+              <h2 class="admin-card-title">Product-Type Custom Field Definitions</h2>
+              <p class="admin-card-subtitle">Metadata-driven schema: text, number, date, yes_no, single_select, multi_select</p>
+            </div>
+            <div class="admin-card-actions">
+              <select id="cf-product-type-selector" class="admin-form-select" style="width: 240px;" onchange="loadCustomFieldDefs()">
+                <option value="">Select Product Type...</option>
+              </select>
+              <button class="btn btn-primary role-admin" onclick="openCreateCustomFieldModal()">+ New Definition</button>
+            </div>
+          </div>
+          <div style="overflow-x: auto;">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Order</th>
+                  <th>Code</th>
+                  <th>Label</th>
+                  <th>Field Type</th>
+                  <th>Required</th>
+                  <th>Status</th>
+                  <th>Options</th>
+                  <th>Version</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="custom-fields-table-body">
+                <tr><td colspan="9" style="text-align: center; color: var(--text-dim);">Select a product type above</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Project Custom Field Values Editor -->
+        <div class="admin-card">
+          <div class="admin-card-header">
+            <div>
+              <h3 class="admin-card-title">Project Custom Field Values Editor</h3>
+              <p class="admin-card-subtitle">Manage normalized values for projects within your authorized scope</p>
+            </div>
+            <div class="admin-card-actions">
+              <select id="cf-project-selector" class="admin-form-select" style="width: 240px;" onchange="loadProjectCustomFieldValues()">
+                <option value="">Select Project...</option>
+              </select>
+              <button class="btn btn-primary" onclick="saveProjectCustomFields()">Save Custom Fields</button>
+            </div>
+          </div>
+          <div id="project-custom-fields-form" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; padding: 12px 0;">
+            <span style="color: var(--text-dim); font-size: 0.85rem;">Select a project above to enter/edit custom fields</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- 11. System Admin Audit Trail View -->
+      <section id="tab-audit" class="tab-content" style="display: none;">
+        <div class="admin-card">
+          <div class="admin-card-header">
+            <div>
+              <h2 class="admin-card-title">Immutable Audit Trail Log</h2>
+              <p class="admin-card-subtitle">Append-only audit events for all Step 3 configuration and lifecycle records</p>
+            </div>
+            <div class="admin-card-actions">
+              <button class="btn btn-primary" onclick="loadAuditEvents()">Refresh Log</button>
+            </div>
+          </div>
+          <div style="overflow-x: auto;">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Actor</th>
+                  <th>Action</th>
+                  <th>Entity</th>
+                  <th>Reason / Justification</th>
+                  <th>State Diff</th>
+                </tr>
+              </thead>
+              <tbody id="audit-table-body">
+                <tr><td colspan="6" style="text-align: center; color: var(--text-dim);">Loading audit events...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- MODALS -->
+  <!-- 1. Create/Edit User Modal -->
+  <div class="admin-modal-backdrop" id="modal-user">
+    <div class="admin-modal">
+      <div class="admin-modal-header">
+        <h3 class="admin-modal-title" id="modal-user-title">Create User</h3>
+        <button class="admin-modal-close" onclick="closeModal('modal-user')">&times;</button>
+      </div>
+      <form id="form-user" onsubmit="handleUserSubmit(event)">
+        <input type="hidden" id="user-edit-id">
+        <input type="hidden" id="user-edit-version">
+        <div class="admin-form-group">
+          <label class="admin-form-label">Full Name</label>
+          <input type="text" id="user-full-name" class="admin-form-input" required>
+        </div>
+        <div class="admin-form-group" id="user-email-group">
+          <label class="admin-form-label">Email Address</label>
+          <input type="email" id="user-email" class="admin-form-input" required>
+        </div>
+        <div class="admin-form-group" id="user-pwd-group">
+          <label class="admin-form-label">Temporary Password</label>
+          <input type="password" id="user-password" class="admin-form-input" placeholder="Requires 12+ chars, upper, lower, digit, symbol">
+        </div>
+        <div class="admin-form-group">
+          <label class="admin-form-label">Roles</label>
+          <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+            <label><input type="checkbox" name="user_role" value="SYSTEM_ADMIN"> Admin</label>
+            <label><input type="checkbox" name="user_role" value="PROJECT_MANAGER"> Project Manager</label>
+            <label><input type="checkbox" name="user_role" value="RESOURCE_MANAGER"> Resource Manager</label>
+            <label><input type="checkbox" name="user_role" value="TEAM_LEAD"> Team Lead</label>
+            <label><input type="checkbox" name="user_role" value="TEAM_MEMBER" checked> Team Member</label>
+          </div>
+        </div>
+        <div class="admin-form-actions">
+          <button type="button" class="btn" onclick="closeModal('modal-user')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save User</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 2. Create/Edit Team Modal -->
+  <div class="admin-modal-backdrop" id="modal-team">
+    <div class="admin-modal">
+      <div class="admin-modal-header">
+        <h3 class="admin-modal-title" id="modal-team-title">Create Team</h3>
+        <button class="admin-modal-close" onclick="closeModal('modal-team')">&times;</button>
+      </div>
+      <form id="form-team" onsubmit="handleTeamSubmit(event)">
+        <input type="hidden" id="team-edit-id">
+        <input type="hidden" id="team-edit-version">
+        <div class="admin-form-group">
+          <label class="admin-form-label">Team Code</label>
+          <input type="text" id="team-code" class="admin-form-input" placeholder="e.g. TEAM-CAL-VAL" required>
+        </div>
+        <div class="admin-form-group">
+          <label class="admin-form-label">Team Name</label>
+          <input type="text" id="team-name" class="admin-form-input" required>
+        </div>
+        <div class="admin-form-group">
+          <label class="admin-form-label">Description</label>
+          <textarea id="team-description" class="admin-form-textarea"></textarea>
+        </div>
+        <div class="admin-form-actions">
+          <button type="button" class="btn" onclick="closeModal('modal-team')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Team</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 3. Add Member Modal -->
+  <div class="admin-modal-backdrop" id="modal-member">
+    <div class="admin-modal">
+      <div class="admin-modal-header">
+        <h3 class="admin-modal-title">Add Team Member</h3>
+        <button class="admin-modal-close" onclick="closeModal('modal-member')">&times;</button>
+      </div>
+      <form id="form-member" onsubmit="handleMemberSubmit(event)">
+        <div class="admin-form-group">
+          <label class="admin-form-label">Select User</label>
+          <select id="member-user-id" class="admin-form-select" required></select>
+        </div>
+        <div class="admin-form-group">
+          <label class="admin-form-label">Active From Date</label>
+          <input type="date" id="member-active-from" class="admin-form-input" required>
+        </div>
+        <div class="admin-form-group">
+          <label class="admin-form-label">Active To Date (Optional)</label>
+          <input type="date" id="member-active-to" class="admin-form-input">
+        </div>
+        <div class="admin-form-group">
+          <label><input type="checkbox" id="member-is-lead"> Team Lead Designation</label>
+        </div>
+        <div class="admin-form-actions">
+          <button type="button" class="btn" onclick="closeModal('modal-member')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Assign Member</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 4. Create/Edit Project Modal -->
+  <div class="admin-modal-backdrop" id="modal-project">
+    <div class="admin-modal">
+      <div class="admin-modal-header">
+        <h3 class="admin-modal-title" id="modal-project-title">Create Project</h3>
+        <button class="admin-modal-close" onclick="closeModal('modal-project')">&times;</button>
+      </div>
+      <form id="form-project" onsubmit="handleProjectSubmit(event)">
+        <input type="hidden" id="project-edit-id">
+        <input type="hidden" id="project-edit-version">
+        <div class="admin-form-group">
+          <label class="admin-form-label">Product</label>
+          <select id="project-product-id" class="admin-form-select" required></select>
+        </div>
+        <div class="admin-form-group">
+          <label class="admin-form-label">Project Code (Immutable after creation)</label>
+          <input type="text" id="project-code" class="admin-form-input" placeholder="e.g. EMS-G2-XYZ" required>
+        </div>
+        <div class="admin-form-group">
+          <label class="admin-form-label">Project Name</label>
+          <input type="text" id="project-name" class="admin-form-input" required>
+        </div>
+        <div class="admin-form-group">
+          <label class="admin-form-label">Priority</label>
+          <select id="project-priority-id" class="admin-form-select" required></select>
+        </div>
+        <div class="admin-form-group">
+          <label class="admin-form-label">Planned Start Date</label>
+          <input type="date" id="project-start-date" class="admin-form-input" required>
+        </div>
+        <div class="admin-form-group">
+          <label class="admin-form-label">Planned Finish Date</label>
+          <input type="date" id="project-finish-date" class="admin-form-input" required>
+        </div>
+        <div class="admin-form-group">
+          <label class="admin-form-label">Description</label>
+          <textarea id="project-description" class="admin-form-textarea"></textarea>
+        </div>
+        <div class="admin-form-actions">
+          <button type="button" class="btn" onclick="closeModal('modal-project')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Project</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 5. Create Phase Modal -->
+  <div class="admin-modal-backdrop" id="modal-phase">
+    <div class="admin-modal">
+      <div class="admin-modal-header">
+        <h3 class="admin-modal-title" id="modal-phase-title">Create Phase</h3>
+        <button class="admin-modal-close" onclick="closeModal('modal-phase')">&times;</button>
+      </div>
+      <form id="form-phase" onsubmit="handlePhaseSubmit(event)">
+        <input type="hidden" id="phase-edit-id">
+        <input type="hidden" id="phase-edit-version">
+        <div class="admin-form-group">
+          <label class="admin-form-label">Sequence Number</label>
+          <input type="number" id="phase-sequence" class="admin-form-input" min="1" required>
+        </div>
+        <div class="admin-form-group">
+          <label class="admin-form-label">Phase Name</label>
+          <input type="text" id="phase-name" class="admin-form-input" required>
+        </div>
+        <div class="admin-form-group">
+          <label class="admin-form-label">Planned Start Date</label>
+          <input type="date" id="phase-start-date" class="admin-form-input">
+        </div>
+        <div class="admin-form-group">
+          <label class="admin-form-label">Planned Finish Date</label>
+          <input type="date" id="phase-finish-date" class="admin-form-input">
+        </div>
+        <div class="admin-form-actions">
+          <button type="button" class="btn" onclick="closeModal('modal-phase')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Phase</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 6. Create Reference Data Modal -->
+  <div class="admin-modal-backdrop" id="modal-ref-data">
+    <div class="admin-modal">
+      <div class="admin-modal-header">
+        <h3 class="admin-modal-title" id="modal-ref-data-title">Create Reference Item</h3>
+        <button class="admin-modal-close" onclick="closeModal('modal-ref-data')">&times;</button>
+      </div>
+      <form id="form-ref-data" onsubmit="handleRefDataSubmit(event)">
+        <input type="hidden" id="ref-edit-id">
+        <input type="hidden" id="ref-edit-version">
+        <div class="admin-form-group">
+          <label class="admin-form-label">Code (Unique)</label>
+          <input type="text" id="ref-code" class="admin-form-input" required>
+        </div>
+        <div class="admin-form-group">
+          <label class="admin-form-label">Display Name</label>
+          <input type="text" id="ref-name" class="admin-form-input" required>
+        </div>
+        <div class="admin-form-group">
+          <label class="admin-form-label">Display Order</label>
+          <input type="number" id="ref-order" class="admin-form-input" min="1" value="1" required>
+        </div>
+        <div class="admin-form-actions">
+          <button type="button" class="btn" onclick="closeModal('modal-ref-data')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Reference Item</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 7. Create Custom Field Definition Modal -->
+  <div class="admin-modal-backdrop" id="modal-custom-field">
+    <div class="admin-modal">
+      <div class="admin-modal-header">
+        <h3 class="admin-modal-title">Define Custom Field</h3>
+        <button class="admin-modal-close" onclick="closeModal('modal-custom-field')">&times;</button>
+      </div>
+      <form id="form-custom-field" onsubmit="handleCustomFieldSubmit(event)">
+        <div class="admin-form-group">
+          <label class="admin-form-label">Field Code</label>
+          <input type="text" id="cf-code" class="admin-form-input" placeholder="e.g. TARGET_SOP_DATE" required>
+        </div>
+        <div class="admin-form-group">
+          <label class="admin-form-label">Label</label>
+          <input type="text" id="cf-label" class="admin-form-input" placeholder="e.g. Target SOP Date" required>
+        </div>
+        <div class="admin-form-group">
+          <label class="admin-form-label">Help Text</label>
+          <input type="text" id="cf-help-text" class="admin-form-input">
+        </div>
+        <div class="admin-form-group">
+          <label class="admin-form-label">Field Type</label>
+          <select id="cf-type" class="admin-form-select" required onchange="toggleOptionInputs()">
+            <option value="text">text</option>
+            <option value="number">number</option>
+            <option value="date">date</option>
+            <option value="yes_no">yes_no</option>
+            <option value="single_select">single_select</option>
+            <option value="multi_select">multi_select</option>
+          </select>
+        </div>
+        <div class="admin-form-group" id="cf-options-group" style="display: none;">
+          <label class="admin-form-label">Initial Options (Comma-separated)</label>
+          <input type="text" id="cf-options" class="admin-form-input" placeholder="e.g. Option A, Option B, Option C">
+        </div>
+        <div class="admin-form-group">
+          <label class="admin-form-label">Display Order</label>
+          <input type="number" id="cf-order" class="admin-form-input" min="1" value="1" required>
+        </div>
+        <div class="admin-form-group">
+          <label><input type="checkbox" id="cf-required"> Mandatory / Required Field</label>
+        </div>
+        <div class="admin-form-actions">
+          <button type="button" class="btn" onclick="closeModal('modal-custom-field')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Create Definition</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/admin.js"></script>
+</body>
+</html>

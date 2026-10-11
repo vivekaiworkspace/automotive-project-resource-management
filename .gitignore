@@ -1,0 +1,78 @@
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.cert
+*.pfx
+*.p12
+secrets/
+private/
+.seed-credentials.json
+*.seed-credentials.json
+
+# Dependency directories
+node_modules/
+jspm_packages/
+vendor/
+venv/
+.venv/
+env/
+ENV/
+__pypackages__/
+
+# Build and distribution outputs
+dist/
+build/
+out/
+bin/
+obj/
+*.egg-info/
+.next/
+.nuxt/
+.cache/
+.parcel-cache/
+
+# Logs and runtime diagnostics
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Local database runtime files and storage
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.dump
+data/
+db_data/
+postgres-data/
+
+# Test and code coverage outputs
+coverage/
+.nyc_output/
+htmlcov/
+.pytest_cache/
+.coverage
+.coverage.*
+
+# IDE, editor, and OS files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
