@@ -119,7 +119,15 @@ import {
   handleGetMilestone,
   handleListNotifications,
 } from './modules/capacity_scheduling/index.js';
-import { leaveModule } from './modules/leave/index.js';
+import {
+  leaveModule,
+  handleCreateLeave,
+  handleListLeave,
+  handleGetLeaveById,
+  handleApproveLeave,
+  handleRejectLeave,
+  handleCancelLeave,
+} from './modules/leave/index.js';
 
 export function createApp() {
   const server = http.createServer(async (req, res) => {
@@ -640,6 +648,44 @@ export function createApp() {
       // In-app Notifications: GET
       if (req.method === 'GET' && pathname === '/api/v1/notifications') {
         return await handleListNotifications(req, res);
+      }
+
+      // =======================================================================
+      // Step 6: Leave Management & Server-Side Privacy Serialization Endpoints
+      // =======================================================================
+
+      // Leave Approve: POST /api/v1/leave/:id/approve
+      const matchLeaveApprove = pathname.match(/^\/api\/v1\/leave\/([a-zA-Z0-9-]+)\/approve$/);
+      if (matchLeaveApprove) {
+        const leaveId = matchLeaveApprove[1];
+        if (req.method === 'POST') return await handleApproveLeave(req, res, leaveId);
+      }
+
+      // Leave Reject: POST /api/v1/leave/:id/reject
+      const matchLeaveReject = pathname.match(/^\/api\/v1\/leave\/([a-zA-Z0-9-]+)\/reject$/);
+      if (matchLeaveReject) {
+        const leaveId = matchLeaveReject[1];
+        if (req.method === 'POST') return await handleRejectLeave(req, res, leaveId);
+      }
+
+      // Leave Cancel: POST /api/v1/leave/:id/cancel
+      const matchLeaveCancel = pathname.match(/^\/api\/v1\/leave\/([a-zA-Z0-9-]+)\/cancel$/);
+      if (matchLeaveCancel) {
+        const leaveId = matchLeaveCancel[1];
+        if (req.method === 'POST') return await handleCancelLeave(req, res, leaveId);
+      }
+
+      // Leave Item: GET /api/v1/leave/:id
+      const matchLeaveItem = pathname.match(/^\/api\/v1\/leave\/([a-zA-Z0-9-]+)$/);
+      if (matchLeaveItem) {
+        const leaveId = matchLeaveItem[1];
+        if (req.method === 'GET') return await handleGetLeaveById(req, res, leaveId);
+      }
+
+      // Leave List & Create: GET & POST /api/v1/leave
+      if (pathname === '/api/v1/leave') {
+        if (req.method === 'GET') return await handleListLeave(req, res);
+        if (req.method === 'POST') return await handleCreateLeave(req, res);
       }
 
       // Not Found

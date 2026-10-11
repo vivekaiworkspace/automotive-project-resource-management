@@ -149,4 +149,17 @@ describe('Versioned Database Migrations Tests', () => {
     assert.ok(content.includes('lead.validation@example.test'), 'Must seed lead.validation user');
     assert.ok(content.includes('resource.manager@example.test'), 'Must seed resource.manager user');
   });
+
+  test('010_leave_management contains leave audit actions and performance indexes', () => {
+    const files = getMigrationFiles();
+    const mig010 = files.find(f => f.version === '010');
+    assert.ok(mig010, '010_leave_management must be present');
+
+    const content = mig010.content;
+    assert.ok(content.includes('LEAVE_SUBMITTED'), 'Must include LEAVE_SUBMITTED audit action');
+    assert.ok(content.includes('LEAVE_APPROVED'), 'Must include LEAVE_APPROVED audit action');
+    assert.ok(content.includes('LEAVE_REJECTED'), 'Must include LEAVE_REJECTED audit action');
+    assert.ok(content.includes('LEAVE_CANCELLED'), 'Must include LEAVE_CANCELLED audit action');
+    assert.ok(content.includes('idx_leave_records_user_dates'), 'Must include user dates index');
+  });
 });
