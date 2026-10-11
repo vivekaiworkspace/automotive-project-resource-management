@@ -1,9 +1,9 @@
 # Automotive Project & Resource Management System
 ## Quality Assurance & Test Strategy Specification — MVP Core Pilot
 
-**Document Version:** 1.0  
-**Status:** Approved Technical Design  
-**Authoritative Sources:** PRD.md v1.0, docs/MVP-SCOPE.md, docs/CORE-PILOT-DECISIONS.md, docs/ARCHITECTURE.md  
+**Document Version:** 1.0
+**Status:** Approved Technical Design
+**Authoritative Sources:** PRD.md v1.0, docs/MVP-SCOPE.md, docs/CORE-PILOT-DECISIONS.md, docs/ARCHITECTURE.md
 
 ---
 
@@ -156,22 +156,29 @@ graph TD
 
 ---
 
-### 2.9 Material Change Audit Enforcement (CPD-009)
+### 2.9 Material Change Audit Enforcement (CPD-009) — Deferred to Operational Hardening; not required for Core Pilot acceptance
 
-* **TC-AUD-001: Date change: shift of >= 3 working days requires reason**
+> [!NOTE]
+> Per Product Owner decision on 2026-10-11, CPD-009 material-change threshold rules (3-working-day date shift, 20% estimate change, ordinary-edit mandatory reasons) are deferred to Operational Hardening and are not required for Core Pilot acceptance. Valid Core Pilot test coverage for terminal administrative overrides (CPD-007, TC-ACT-005/006), capacity hard-block overrides (CPD-004, TC-CAP-003/004), and leave workflow events (CPD-006, TC-LEV-001–005) remains active.
+
+* **TC-AUD-001: Date change: shift of >= 3 working days requires reason (Deferred to Operational Hardening; not required for Core Pilot acceptance)**
+  * *Status:* Deferred to Operational Hardening; not required for Core Pilot acceptance.
   * *Setup:* Move activity due date by 3 or more working days without `change_reason`.
-  * *Expected Result:* API returns `400 Bad Request` (`"Material change requires a justification reason of at least 10 characters"`).
-* **TC-AUD-002: Date shift < 3 working days saves silently**
+  * *Expected Result:* (Operational Hardening) API returns `400 Bad Request` (`"Material change requires a justification reason of at least 10 characters"`). In Core Pilot, standard edits save without mandatory reason prompt.
+* **TC-AUD-002: Date shift < 3 working days saves silently (Deferred to Operational Hardening; not required for Core Pilot acceptance)**
+  * *Status:* Deferred to Operational Hardening; not required for Core Pilot acceptance.
   * *Setup:* Move activity due date by 2 working days without `change_reason`.
-  * *Expected Result:* API returns `200 OK`. Audit log row is written silently with null reason.
-* **TC-AUD-003: Estimate change: change of >= 20 percent requires reason**
+  * *Expected Result:* API returns `200 OK`. Audit log row is written silently.
+* **TC-AUD-003: Estimate change: change of >= 20 percent requires reason (Deferred to Operational Hardening; not required for Core Pilot acceptance)**
+  * *Status:* Deferred to Operational Hardening; not required for Core Pilot acceptance.
   * *Setup:* Change estimate from 40.00h to 50.00h (+25%) without reason.
-  * *Expected Result:* API returns `400 Bad Request`. When submitted with reason >= 10 chars, request succeeds.
+  * *Expected Result:* (Operational Hardening) API returns `400 Bad Request`. In Core Pilot, estimate updates save without mandatory reason prompt.
 
 ---
 
 ## 3. Out of Scope / Deferred Test Areas (Operational Hardening)
 
+* **Material-Change Threshold Enforcement & Interceptors:** (TC-AUD-001, TC-AUD-002, TC-AUD-003 deferred to Operational Hardening per CPD-009; not required for Core Pilot acceptance).
 * **Finish-to-Start Automated Dependency Shifting:** Testing automatic date ripple upon predecessor delay is deferred to Operational Hardening.
 * **Predecessor Cancellation Active Review Flag Engine:** Testing dependency review warnings is deferred to Operational Hardening.
 * **Corporate SSO / Active Directory Integration Tests:** Deferred to Release 2.

@@ -1,20 +1,20 @@
 # Core Pilot Decisions
 ## Automotive Multi-Product Project & Resource Management System
 
-**Document type:** Approval register — pre-architecture decisions  
-**Source documents:** PRD.md v1.0, MVP-SCOPE.md v0.2, OPEN-QUESTIONS.md v0.1, REQUIREMENTS-DECISION-LOG.md v0.1  
-**Prepared:** 2026-10-10  
-**Status:** **CORE PILOT BUILD GATE: CLEARED WITH CONDITIONS (2026-10-10)**  
+**Document type:** Approval register — pre-architecture decisions
+**Source documents:** PRD.md v1.0, MVP-SCOPE.md v0.2, OPEN-QUESTIONS.md v0.1, REQUIREMENTS-DECISION-LOG.md v0.1
+**Prepared:** 2026-10-10
+**Status:** **CORE PILOT BUILD GATE: CLEARED WITH CONDITIONS (2026-10-10)**
 **Summary:** Build authorized to proceed against technical design baseline subject to recorded conditions.
 
 > [!NOTE]
 > **Build Gate Outcome: CLEARED WITH CONDITIONS (2026-10-10)**
-> 
+>
 > **Required before pilot go-live:**
 > 1. One Product Owner approval record covering CPD-001 to CPD-008, excluding CPD-009.
 > 2. CPD-003 calendar and holiday list before pilot data is loaded.
 > 3. CPD-010 IT confirmation of network access, backup location, and restore-test owner/date before go-live.
-> 
+>
 > **Deferred to Operational Hardening:**
 > - CPD-009 detailed material-change thresholds and mandatory-reason policy.
 > - Full configurable permissions, corporate SSO, advanced backup/recovery, dependency engine, dashboards, and other listed hardening features.
@@ -251,29 +251,29 @@ Leave interacts with the capacity formula (CPD-004) at the API layer: the leave 
 
 ## CPD-007 — Activity Structure and Status Workflow
 
-**Decision ID:** CPD-007  
-**Decision Title:** Activity Structure and Status Workflow  
-**Decision Status:** **Pending formal Product Owner or delegated approver sign-off**  
+**Decision ID:** CPD-007
+**Decision Title:** Activity Structure and Status Workflow
+**Decision Status:** **Approved by Product Owner, Vivek (2026-10-11)**
 **Decision Outcome:**
-- [ ] Approve proposed decision as stated
-- [x] Change proposed decision
+- [x] Approve proposed decision as stated
+- [ ] Change proposed decision
 
-**Approved Alternative:**  
-*"Approve CPD-007 with the corrected Activity Status Transition Matrix as the authoritative Core Pilot transition specification, subject to Product Owner or delegated approver sign-off."*
+**Approved Alternative:**
+*"Approve CPD-007 with the corrected Activity Status Transition Matrix as the authoritative Core Pilot transition specification, subject to the CPD-009 deferral."*
 
-**Approval Control (Pending Sign-off):**
-- **Approver Full Name:** `<To be supplied>`
-- **Approver Role/Title:** `<To be supplied>`
-- **Delegated Authority Confirmation:** `<Pending confirmation: Product Owner or formally delegated authority>`
-- **Decision Date:** `<Pending: UTC or organization-local date>`
-- **Approval Evidence / Reference:** `<Pending: signed document reference, meeting minutes ID, email approval reference, or ticket/issue ID>`
-- **Approval Scope Confirmed:** Corrected Activity Status Transition Matrix and CPD-007 clarifications (Sections A–G below)
-- **Approved Document / Revision:** `<Pending: document version>`
-- **Conditions / Exceptions / Follow-up Actions:** `<None or details pending>`
-- **Record Owner:** `<To be supplied: responsible for filing formal approval evidence>`
+**Approval Control:**
+- **Approver Full Name:** Vivek
+- **Approver Role/Title:** Product Owner
+- **Delegated Authority Confirmation:** Direct Product Owner approval (Vivek)
+- **Decision Date:** 2026-10-11
+- **Approval Evidence / Reference:** Product Owner decision recorded in Core Pilot decision register
+- **Approval Scope Confirmed:** Corrected activity status transition matrix and CPD-007 clarifications (Sections A–G below), subject to the CPD-009 deferral stated below
+- **Approved Document / Revision:** Core Pilot Decisions v0.1 / CPD-007 Specification
+- **Conditions / Exceptions / Follow-up Actions:** Approved subject to CPD-009 deferral to Operational Hardening (detailed date/effort material-change thresholds and ordinary-edit reason prompts excluded from Core Pilot).
+- **Record Owner:** Vivek (Product Owner)
 
-> [!CAUTION]
-> Implementation architecture must not begin while any required Core Pilot decision remains unresolved. CPD-007 is marked as **Pending formal Product Owner or delegated approver sign-off** and must not be treated as approved implementation input until all approval evidence fields above are completed and recorded. For the formal package, see [docs/CPD-007-APPROVAL-REQUEST.md](file:///c:/DATA/Antigravity/Projects/automotive-project-resource-management/docs/CPD-007-APPROVAL-REQUEST.md).
+> [!NOTE]
+> CPD-007 is approved by Product Owner Vivek on 2026-10-11. Terminal administrative overrides, atomic cancellation, child-completion constraints, and immutable audit tracking are approved for Core Pilot. Material-change threshold prompts for ordinary edits are deferred per CPD-009. For the approval record, see [docs/CPD-007-APPROVAL-REQUEST.md](file:///c:/DATA/Antigravity/Projects/automotive-project-resource-management/docs/CPD-007-APPROVAL-REQUEST.md).
 
 ---
 
@@ -312,12 +312,8 @@ Leave interacts with the capacity formula (CPD-004) at the API layer: the leave 
 
 #### F. Deferred and Conditional Behavior
 - **Actual-Start-Date Capture:** Automatic actual-start-date capture is **not** implemented in Core Pilot.
-- **Replanning Justification:** Backward replanning (`Planned → Ready for Planning` or `In Progress → Planned`) requires a justification reason **only if** the associated change meets an existing material-change trigger:
-  * Date change: shift of >= 3 working days;
-  * Estimate change: change of >= 20 percent;
-  * Assignee change: any assignee change on a `Planned` or `In Progress` activity; or
-  * Priority change: any priority change on a `Planned` or `In Progress` activity.
-- **Blocker Description vs. Material Change:** Entering `Blocked` requires a blocker description. Returning `Blocked → In Progress` may optionally record a resolution note. Neither transition requires the CPD-009 10-character material-change reason minimum unless another material change occurs in the same action.
+- **Replanning Justification:** Ordinary backward replanning (`Planned → Ready for Planning` or `In Progress → Planned`) does not enforce material-change reason prompts in Core Pilot; material-change threshold enforcement is deferred to Operational Hardening (CPD-009).
+- **Blocker Description vs. Material Change:** Entering `Blocked` requires a blocker description. Returning `Blocked → In Progress` may optionally record a resolution note. Neither transition requires a material-change reason prompt.
 
 #### G. Default Scheduling Constraint and Identifiers
 - Default for all new activities: **As Soon As Possible (ASAP)**. Available in Core Pilot: ASAP, Start No Earlier Than (SNET), Finish No Later Than (FNLT).
@@ -360,13 +356,15 @@ Row-level access control and API authorization checks are implemented against sp
 
 ## CPD-009 — Material-Change Rules
 
-**Proposed decision**
+**Decision Status:** **Deferred to Operational Hardening — not Core Pilot implementation scope.**
 
-A "material change" (BR-011) is an edit to a field that requires the system to prompt the user for a reason and write an audit entry recording the before value, after value, actor, timestamp, and reason.
+A "material change" (BR-011) was proposed as an edit to a field that requires the system to prompt the user for a reason and write an audit entry recording the before value, after value, actor, timestamp, and reason.
 
-The following events are material changes in Core Pilot:
+**Operational Hardening Proposed Thresholds (Deferred from Core Pilot):**
 
-| Event | Threshold / condition | Reason required? | Audit entry? |
+The following events were proposed as material changes and are deferred to Operational Hardening:
+
+| Event | Proposed Threshold / Condition (Operational Hardening) | Reason required? | Audit entry? |
 |---|---|---|---|
 | Activity due-date change | Date change: shift of >= 3 working days from current due date | Yes (min 10 chars) | Yes |
 | Activity start-date change | Date change: shift of >= 3 working days from current start date | Yes (min 10 chars) | Yes |
@@ -378,7 +376,7 @@ The following events are material changes in Core Pilot:
 | Hard-conflict override | Always (see CPD-004) | Yes (min 10 chars) | Yes |
 | Leave approval or rejection by an authorized manager | Always | No — reason optional | Yes |
 
-Changes below the date/effort thresholds are saved silently with a standard audit row (actor and timestamp) but without prompting for a reason.
+Changes below the date/effort thresholds are saved silently with a standard audit row (actor and timestamp) but without prompting for a reason. In Core Pilot, ordinary activity field edits do not trigger reason prompts; reason prompts are enforced only for approved capacity hard-block overrides (CPD-004) and terminal administrative overrides (CPD-007).
 
 Additional rules:
 - Admin can adjust date-shift and effort-percentage thresholds in system settings. The proposed defaults above are the initial values entered at deployment.
@@ -391,11 +389,11 @@ Additional rules:
 **Why this is needed before architecture**
 The audit table schema must include columns for `reason`, `before_value`, `after_value`, `correlation_id`, and `actor_id` from the first migration. The API write paths for activity and assignment endpoints must know which field-change combinations trigger the reason prompt before those endpoints are coded. The threshold values must also be stored in a configuration table (not hardcoded) to satisfy the PRD requirement that they are admin-configurable; that configuration table must exist in the initial schema.
 
-**Status:** **Deferred to Operational Hardening (2026-10-10)**  
+**Status:** **Deferred to Operational Hardening — not Core Pilot implementation scope.**
 Detailed material-change thresholds and mandatory-reason prompt policy are deferred to MVP Operational Hardening. The underlying append-only `audit_log` schema remains active in Core Pilot for status transitions and administrative overrides, but field-level threshold prompt logic is excluded from the Core Pilot build gate.
 
 - [ ] Approve — Mandatory written reason (min 10 characters) for: date change (shift of >= 3 working days), estimate change (change of >= 20 percent), any assignee change on a Planned or In Progress activity, any priority change on a Planned or In Progress activity, cancellation, completion, and capacity hard-block override; immutable audit entries for all changes.
-- [x] Deferred to Operational Hardening — Detailed material-change thresholds and mandatory-reason prompt policy deferred.
+- [x] Deferred to Operational Hardening — not Core Pilot implementation scope. Detailed material-change thresholds and mandatory-reason prompt policy deferred.
 
 ---
 

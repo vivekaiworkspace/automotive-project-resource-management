@@ -1,8 +1,8 @@
 # Next Decisions for Vivek
 ## EMS ECU Development — Pilot Approval Register & Status
 
-**Status:** **CORE PILOT BUILD GATE: CLEARED WITH CONDITIONS (2026-10-10)**  
-**Summary:** Build authorized to proceed against technical design baseline. Required before go-live: (1) One Product Owner approval record covering CPD-001 to CPD-008, (2) CPD-003 calendar/holiday list before data load, (3) CPD-010 IT network access, backup location, and restore drill confirmation. CPD-009 detailed material-change thresholds and mandatory-reason policy deferred to Operational Hardening.
+**Status:** **CORE PILOT BUILD GATE: CLEARED WITH CONDITIONS (2026-10-10)**
+**Summary:** Build authorized to proceed against technical design baseline. CPD-001 through CPD-008 are approved by Product Owner Vivek. CPD-009 is deferred to Operational Hardening (not awaiting a Core Pilot decision or blocking implementation). Required before go-live: (1) CPD-003 calendar/holiday list before data load, (2) CPD-010 IT network access, backup location, and restore drill confirmation.
 
 ---
 
@@ -101,9 +101,8 @@
 
 ---
 
-### CPD-007 — Activity Structure & Lifecycle Statuses — PENDING FORMAL SIGN-OFF
-**Decision Status:** Pending formal Product Owner or delegated approver sign-off  
-**Approval Alternative:** Approve CPD-007 with the corrected Activity Status Transition Matrix as the authoritative Core Pilot transition specification, subject to sign-off.
+### CPD-007 — Activity Structure & Lifecycle Statuses — APPROVED
+**Approved by Vivek on 2026-10-11**
 
 - **Sub-activity depth:** Exactly one level of sub-activities supported (Activity → Sub-activity).
 - **Statuses:** `Draft → Ready for Planning → Planned → In Progress ⇄ Blocked → Done` or `Cancelled`.
@@ -111,7 +110,7 @@
 - **Audit:** Action `OVERRIDE` for terminal transitions/reopenings, `STATUS_CHANGE` for normal transitions; metadata events `ACTIVITY_COMPLETED`, `ACTIVITY_CANCELLED`, `ACTIVITY_REOPENED`, `ACTIVITY_REVOCATION`.
 - **Cancellation rule:** Single-transaction atomic cancellation; ends future planned load from cancellation date forward; preserves history/audit; no future capacity consumed; sub-activities keep independent status.
 - **Parent/child completion:** A parent activity may transition to Done only when every direct child sub-activity is either Done or Cancelled. Any child in Draft, Ready for Planning, Planned, In Progress, or Blocked prevents the parent from entering Done.
-- **Deferred/conditional:** No automatic actual-start-date capture in Core Pilot; backward replanning requires justification only if meeting material-change thresholds.
+- **Deferred/conditional:** No automatic actual-start-date capture in Core Pilot; material-change threshold enforcement for ordinary edits deferred per CPD-009.
 
 ---
 
@@ -126,10 +125,11 @@
 ---
 
 ### CPD-009 — Material-Change Audit Rules — DEFERRED TO OPERATIONAL HARDENING
-**Status:** Deferred to Operational Hardening (2026-10-10)
+**Status:** Deferred to Operational Hardening — not Core Pilot implementation scope.
 
-- Detailed material-change thresholds (shift of >= 3 working days, estimate change of >= 20 percent) and mandatory-reason prompt policy are deferred to MVP Operational Hardening.
-- Core Pilot maintains underlying append-only `audit_log` schema for state changes and administrative overrides, but field-level prompt/validation logic is excluded from Core Pilot build gate.
+- Detailed material-change thresholds (shift of >= 3 working days, estimate change of >= 20 percent), ordinary-edit mandatory-reason prompts, and configurable material-change thresholds are deferred to MVP Operational Hardening.
+- CPD-009 is not awaiting a Core Pilot decision and is not a Core Pilot implementation blocker.
+- Core Pilot maintains underlying append-only `audit_log` schema for state changes and administrative overrides (terminal status overrides, capacity hard-block overrides, leave events), but field-level prompt/validation logic is excluded from Core Pilot build gate.
 
 ---
 
@@ -149,18 +149,17 @@
 ```
 PILOT DECISION APPROVAL REGISTER
 Approver: Vivek (Product Owner)
-Approval Date: 2026-10-10
 
-[x] CPD-001 — Product hierarchy & 14 Work-Area Tags
-[x] CPD-002 — Mandatory hours unit & remaining effort progress signal
-[x] CPD-003 — Working calendar: Mon–Fri, 8h/day, Asia/Kolkata
-[x] CPD-004 — Capacity thresholds: 90% warning, 100% block, 0% default buffer
-[x] CPD-005 — Mandatory cross-project load aggregation (Active = not Archived/Cancelled)
-[x] CPD-006 — Leave rules: approved leave reduces capacity, role-based visibility tiers
-[x] CPD-007 — Activity structure: 1 sub-task level, 7 statuses, terminal reopening rule
-[x] CPD-008 — Five pilot roles & scoped PM override authority
-[x] CPD-009 — Material change audit thresholds (3 days, 20%, reassignment, min 10 chars)
-[x] CPD-010 — Local deployment: LAN+VPN, PostgreSQL, Docker Compose, separate backup
+[x] CPD-001 — Product hierarchy & 14 Work-Area Tags (Approved 2026-10-10)
+[x] CPD-002 — Mandatory hours unit & remaining effort progress signal (Approved 2026-10-10)
+[x] CPD-003 — Working calendar: Mon–Fri, 8h/day, Asia/Kolkata (Approved 2026-10-10)
+[x] CPD-004 — Capacity thresholds: 90% warning, 100% block, 0% default buffer (Approved 2026-10-10)
+[x] CPD-005 — Mandatory cross-project load aggregation (Active = not Archived/Cancelled) (Approved 2026-10-10)
+[x] CPD-006 — Leave rules: approved leave reduces capacity, role-based visibility tiers (Approved 2026-10-10)
+[x] CPD-007 — Activity structure: 1 sub-task level, 7 statuses, terminal reopening rule (Approved 2026-10-11)
+[x] CPD-008 — Five pilot roles & scoped PM override authority (Approved 2026-10-10)
+[-] CPD-009 — Material change audit thresholds (Deferred to Operational Hardening; not Core Pilot scope)
+[x] CPD-010 — Local deployment: LAN+VPN, PostgreSQL, Docker Compose, separate backup (Approved 2026-10-10)
 
 STILL PENDING / OPERATIONAL PREREQUISITES (Required before pilot go-live):
 [ ] 2026 company / public holiday list (Vivek to provide before pilot data seeding)

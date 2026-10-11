@@ -1,8 +1,8 @@
 # EMS ECU Development — Pilot Clarification Summary
 ## Plain-Language Decision Guide for Product Owner Review
 
-**Prepared:** 2026-10-10  
-**Based on:** CORE-PILOT-DECISIONS.md v0.1 (proposals only — nothing approved)  
+**Prepared:** 2026-10-10
+**Based on:** CORE-PILOT-DECISIONS.md v0.1 (proposals only — nothing approved)
 **Status:** Awaiting your review and answers
 
 > [!IMPORTANT]
@@ -461,6 +461,8 @@ If Project Managers should not be able to override capacity conflicts, restrict 
 ---
 
 ## Decision 9 — When does a change to an activity require a written reason?
+
+> **Status Note (2026-10-11):** Product Owner Vivek has deferred CPD-009 (Material-Change Rules) to Operational Hardening. Detailed date-shift threshold detection (> 3 working days), estimate-change threshold detection (> 20%), and mandatory reason prompts for ordinary activity edits are excluded from Core Pilot scope. Core Pilot retains append-only audit logging and mandatory reasons only for approved actions: capacity hard-block overrides (CPD-004), terminal status administrative overrides (CPD-007), and leave workflow actions (CPD-006).
 
 ### The question
 

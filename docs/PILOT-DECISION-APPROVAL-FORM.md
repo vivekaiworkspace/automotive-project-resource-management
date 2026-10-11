@@ -1,10 +1,10 @@
 # Automotive Project & Resource Management System
 ## Final Pilot Decision Approval Form — EMS ECU Development Core Pilot
 
-**Document Type:** Formal Decision Approval & Governance Gate Form  
-**Target:** MVP Core Pilot  
-**Date:** 2026-10-10  
-**Gating Rule:** Implementation architecture and application development cannot begin while any required Core Pilot decision (CPD-001 through CPD-010) remains unresolved or unevidenced. Decisions cannot be marked approved from discussion alone.  
+**Document Type:** Formal Decision Approval & Governance Gate Form
+**Target:** MVP Core Pilot
+**Date:** 2026-10-10
+**Gating Rule:** Implementation architecture and application development cannot begin while any required Core Pilot decision (CPD-001 through CPD-010) remains unresolved or unevidenced. Decisions cannot be marked approved from discussion alone.
 
 ---
 
@@ -103,15 +103,15 @@
 #### CPD-007 — Activity Structure and Status Workflow
 * **Proposed Decision:** Activities support one sub-activity level, non-linear status workflow with System Admin-only terminal overrides (Done/Cancelled) and reopenings, single-transaction atomic cancellation, and parent Done blocked until all direct children are Done or Cancelled.
 * **Selection:**
-  - [ ] Approve as proposed
+  - [x] Approve as proposed
   - [ ] Change — provide complete replacement decision:
 * **Approval Record:**
-  - Approver Name: `<To be supplied>`
-  - Approver Role/Title: `<To be supplied>`
-  - Delegated-Authority Confirmation: `<Confirmed / N/A>`
-  - Decision Date: `<Date>`
-  - Evidence/Reference (signed document, email, minutes, or ticket ID): `<To be supplied>`
-  - Conditions or Exceptions: `<None or details>`
+  - Approver Name: Vivek
+  - Approver Role/Title: Product Owner
+  - Delegated-Authority Confirmation: Direct Product Owner approval (Vivek)
+  - Decision Date: 2026-10-11
+  - Evidence/Reference (signed document, email, minutes, or ticket ID): Product Owner decision recorded in Core Pilot decision register
+  - Conditions or Exceptions: Approved subject to CPD-009 deferral to Operational Hardening
 
 ---
 
@@ -131,17 +131,17 @@
 ---
 
 #### CPD-009 — Material-Change Rules
-* **Proposed Decision:** An immutable audit row with a mandatory reason of at least 10 characters is required for date shifts of >= 3 working days, estimate changes of >= 20 percent, reassignments or priority changes on active work, cancellations, completions, and capacity overrides.
+* **Proposed Decision:** An immutable audit row with a mandatory reason of at least 10 characters was proposed for date shifts of >= 3 working days, estimate changes of >= 20 percent, reassignments or priority changes on active work, cancellations, completions, and capacity overrides.
 * **Selection:**
   - [ ] Approve as proposed
-  - [ ] Change — provide complete replacement decision:
+  - [x] Deferred to Operational Hardening — not Core Pilot implementation scope
 * **Approval Record:**
-  - Approver Name: `<To be supplied>`
-  - Approver Role/Title: `<To be supplied>`
-  - Delegated-Authority Confirmation: `<Confirmed / N/A>`
-  - Decision Date: `<Date>`
-  - Evidence/Reference (signed document, email, minutes, or ticket ID): `<To be supplied>`
-  - Conditions or Exceptions: `<None or details>`
+  - Approver Name: Vivek
+  - Approver Role/Title: Product Owner
+  - Delegated-Authority Confirmation: Direct Product Owner approval (Vivek)
+  - Decision Date: 2026-10-11
+  - Evidence/Reference (signed document, email, minutes, or ticket ID): Product Owner decision recorded in Core Pilot decision register
+  - Conditions or Exceptions: Deferred to Operational Hardening; overrides require reason in Core Pilot
 
 ---
 
@@ -175,9 +175,9 @@
 | **CPD-006** | Leave-approval chain | TL (Team) → RM (Scope) → Admin (Global) | Confirmed proposal |
 | **CPD-007** | Sub-activity hierarchy | Exactly 1 level (Activity → Sub-activity) | Confirmed proposal |
 | **CPD-007** | Core status list | Draft, Ready for Planning, Planned, In Progress, Blocked, Done, Cancelled | Confirmed proposal |
-| **CPD-007** | Status transition matrix | Corrected matrix with System Admin terminal overrides | **PENDING FORMAL SIGN-OFF** |
-| **CPD-007** | Parent-completion rule | Parent Done requires all direct children to be Done or Cancelled | **PENDING FORMAL SIGN-OFF** |
-| **CPD-007** | Approval evidence | Reference ID | **Required before pilot go-live** (PO approval covering CPD-001–CPD-008) |
+| **CPD-007** | Status transition matrix | Corrected matrix with System Admin terminal overrides | **Approved (2026-10-11)** |
+| **CPD-007** | Parent-completion rule | Parent Done requires all direct children to be Done or Cancelled | **Approved (2026-10-11)** |
+| **CPD-007** | Approval evidence | Product Owner decision in Core Pilot decision register | **Approved (2026-10-11)** |
 | **CPD-008** | Five-role model | System Admin, Project Manager, Team Lead, Team Member, Resource Manager | Confirmed proposal |
 | **CPD-008** | PM conflict override | Permitted only within assigned projects with reason ≥ 10 chars | Confirmed proposal |
 | **CPD-008** | Team Member visibility | View own assigned activities and assignments only | Confirmed proposal |
@@ -201,9 +201,9 @@
 | **CPD-004** | Capacity & Overload Thresholds | **Cleared (Gated)** | Dynamic capacity; 90% soft warning; 100% hard block with override reason ≥ 10 chars | Vivek (PO) | 2026-10-10 | Consolidated PO record required before go-live |
 | **CPD-005** | Cross-Project Aggregation | **Cleared (Gated)** | Real-time workload aggregation across all active projects | Vivek (PO) | 2026-10-10 | Consolidated PO record required before go-live |
 | **CPD-006** | Leave Integration & Privacy | **Cleared (Gated)** | Approved leave deducts; server-side privacy masking; RM/Admin view reasons | Vivek (PO) | 2026-10-10 | Consolidated PO record required before go-live |
-| **CPD-007** | Activity Workflow & Transitions | **Cleared (Gated)** | One sub-activity level; corrected transition matrix; System Admin terminal overrides; parent Done requires all direct children Done/Cancelled | Vivek (PO) | 2026-10-10 | Consolidated PO record required before go-live |
+| **CPD-007** | Activity Workflow & Transitions | **Approved** | One sub-activity level; corrected transition matrix; System Admin terminal overrides; parent Done requires all direct children Done/Cancelled | Vivek (PO) | 2026-10-11 | Product Owner decision recorded in Core Pilot decision register |
 | **CPD-008** | Pilot Roles & Scope Boundaries | **Cleared (Gated)** | Five-role model; compound role+scope checks; TM view own only; PM override in scope only | Vivek (PO) | 2026-10-10 | Consolidated PO record required before go-live |
-| **CPD-009** | Material-Change Audit Rules | **Deferred** | Detailed material-change thresholds and mandatory-reason prompt policy deferred to Operational Hardening | N/A | N/A | Deferred to Operational Hardening |
+| **CPD-009** | Material-Change Audit Rules | **Deferred** | Detailed material-change thresholds and mandatory-reason prompt policy deferred to Operational Hardening | Vivek (PO) | 2026-10-11 | Deferred to Operational Hardening |
 | **CPD-010** | Local Deployment & Backup | **Cleared (Gated)** | Docker Compose LAN/VPN deployment; local auth; off-host backup; pre-go-live restore drill | Vivek (PO) | 2026-10-10 | IT confirmation required before go-live |
 
 ---
@@ -220,7 +220,7 @@
 
 # **CLEARED WITH CONDITIONS**
 
-**Build Gate Status:**  
+**Build Gate Status:**
 * **Architecture & Technical Design Baseline:** Approved and cleared for Core Pilot build.
 * **Build Authorization:** Build authorized to proceed under the Modular Monolith, PostgreSQL 16, and Docker Compose technical design specifications.
 * **Go-Live Conditions:** Subject to filing the consolidated PO approval record (CPD-001–CPD-008), the 2026 holiday calendar, and IT deployment confirmations before pilot data load and go-live.

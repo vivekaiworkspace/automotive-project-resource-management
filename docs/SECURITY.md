@@ -1,9 +1,9 @@
 # Automotive Project & Resource Management System
 ## Security Architecture & Access Control Specification — MVP Core Pilot
 
-**Document Version:** 1.0  
-**Status:** Approved Technical Design  
-**Authoritative Sources:** PRD.md v1.0, docs/MVP-SCOPE.md, docs/CORE-PILOT-DECISIONS.md, docs/ARCHITECTURE.md  
+**Document Version:** 1.0
+**Status:** Approved Technical Design
+**Authoritative Sources:** PRD.md v1.0, docs/MVP-SCOPE.md, docs/CORE-PILOT-DECISIONS.md, docs/ARCHITECTURE.md
 
 ---
 
@@ -16,7 +16,7 @@ graph TD
     subgraph Corporate_Network["Corporate Network Perimeter"]
         LAN["Corporate LAN"]
         VPN["Corporate VPN"]
-        
+
         subgraph Host_System["Application Server (Single Host)"]
             Proxy["Nginx TLS Reverse Proxy (Edge)"]
             App["Modular Monolith App Core (Private Bridge)"]
@@ -82,8 +82,8 @@ graph TD
 Access authorization is evaluated as the **intersection of Role Permissions and Organizational Scope** (BR-018, CPD-008).
 
 > [!NOTE]
-> **Decision-Traceability Note:**  
-> Authorization rules are design proposals derived from CPD-007, CPD-008, and CPD-009. They are not approved implementation requirements until the relevant Core Pilot decision records have formal Product Owner or delegated-approver sign-off. Where no decision explicitly grants a permission, the matrix uses deny-by-default.
+> **Decision-Traceability Note:**
+> Authorization rules enforce approved Core Pilot decisions: CPD-007 (approved 2026-10-11) and CPD-008 (approved 2026-10-10). Detailed material-change threshold rules (CPD-009) are deferred to Operational Hardening. Where no decision explicitly grants a permission, the matrix uses deny-by-default.
 
 ### 3.1 Pilot Roles (CPD-008)
 1. **`SYSTEM_ADMIN`:** Full system authority. Configures global settings, manages all users, creates Products, creates projects, overrides conflicts, approves leave in all cases.
@@ -151,7 +151,7 @@ graph TD
 
 ---
 
-## 5. Immutable Audit Log Architecture (CPD-009, BR-011)
+## 5. Immutable Audit Log Architecture
 
 The audit log enforces institutional memory and regulatory compliance across automotive engineering milestones.
 
@@ -160,21 +160,24 @@ The audit log enforces institutional memory and regulatory compliance across aut
 * Database permissions for the application user grant `INSERT` and `SELECT` only; `UPDATE` and `DELETE` on `audit_log` are explicitly revoked.
 * Any administrative attempt to truncate or delete audit records requires manual superuser intervention and triggers external database alarms.
 
-### 5.2 Material Change Interceptor
-Before persisting modifications to activities or assignments, the `AuditInterceptor` compares the before-state and proposed after-state:
-* **Trigger 1:** Date change: shift of >= 3 working days from current due date.
-* **Trigger 2:** Date change: shift of >= 3 working days from current start date.
-* **Trigger 3:** Estimate change: change of >= 20 percent of current estimate.
-* **Trigger 4:** Assignee change: any assignee change on a Planned or In Progress activity.
-* **Trigger 5:** Priority change: any priority change on a Planned or In Progress activity.
-* **Trigger 6:** Status changed to `DONE` or `CANCELLED` (Terminal administrative override).
-* **Trigger 7:** Hard conflict override (> 100%).
-* **Enforcement:** If any trigger fires, the request must include a `change_reason` string with length `>= 10` characters. Requests failing this check are rejected with `400 Bad Request`.
+### 5.2 Audit Justification Enforcement & Deferred Material Change Interceptors
+
+In Core Pilot, immutable audit rows are recorded for all state mutations. Mandatory justification strings (trimmed length >= 10 characters) are strictly enforced for approved administrative actions:
+* **Terminal Administrative Overrides (CPD-007):** Status changed to `DONE` or `CANCELLED`, `DONE → CANCELLED` revocation, and terminal reopening.
+* **Capacity Hard Conflict Overrides (CPD-004):** Overriding planned utilization >= 100%.
+
+**Deferred to Operational Hardening (CPD-009):**
+Field-level material-change interceptors for ordinary activity edits are deferred to Operational Hardening and are not active in Core Pilot:
+* Date change: shift of >= 3 working days from current due date or start date (deferred).
+* Estimate change: change of >= 20 percent of current estimate (deferred).
+* Assignee change or priority change on a Planned or In Progress activity (deferred).
+* Configurable material-change threshold rules and interceptors (deferred).
 
 ---
 
 ## 6. Out of Scope / Deferred Items (MVP Operational Hardening & Release 2)
 
+* **Material Change Interceptors & Ordinary-Edit Reason Prompts:** (CPD-009 deferred to Operational Hardening).
 * **Corporate SSO / Active Directory / OIDC Integration:** (Deferred to Release 2; local authentication approved for pilot subject to IT waiver).
 * **Hardware Security Module (HSM) / Enterprise KMS:** (Deferred to Operational Hardening; environment variable secret injection used for pilot).
 * **Automated Penetration Testing & Static Code Analysis CI Gate:** (Operational Hardening).
