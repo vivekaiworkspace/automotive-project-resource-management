@@ -150,13 +150,12 @@ graph TD
 
 ---
 
-## 3. Pending Operational Go-Live Gates
+## 3. Operational Go-Live Gates Status
 
-The following items are preserved as **PENDING** and must be resolved before live pilot rollout:
-1. **Consolidated PO Approval Record (GATE-01):** Recorded in decision register; awaiting formal evidence reference `[APPROVAL_EVIDENCE_REFERENCE]` (CPD-001 through CPD-008; CPD-009 excluded per deferral).
-2. **2026 Company / Public Holiday List (GATE-02):** Vivek to provide official list via intake template before pilot data seeding (`[HOLIDAY_LIST]`).
-3. **IT SSO Waiver Confirmation (GATE-03):** Formal IT waiver for local login before production host deployment.
-4. **Designated Backup Destination & Restore Drill (GATE-04):** IT confirmation of off-host network share / NAS mount and execution/sign-off of restore drill on separate machine before Phase 9 go-live.
+1. **Consolidated PO Approval Record (GATE-01):** **Complete** — Product Owner decisions CPD-001 through CPD-008 are recorded in the Core Pilot decision register. External approval evidence reference `[APPROVAL_EVIDENCE_REFERENCE]` is optional and may be added when available (CPD-009 excluded per deferral; absence does not block governance or pilot readiness).
+2. **Annual Holiday Calendar Intake (GATE-02):** **Pending** for the applicable planning year (current target: 2026). Holiday calendars are maintained separately per calendar year (prior-year records preserved). Validated official list required before pilot data seeding and capacity planning for that year (`[HOLIDAY_LIST]`). Source (`[HOLIDAY_LIST_SOURCE]`) and approver/reference (`[HOLIDAY_LIST_APPROVER]`) are optional metadata.
+3. **IT SSO Waiver Confirmation (GATE-03):** **Pending** — Formal IT waiver for local login before production host deployment.
+4. **Designated Backup Destination & Restore Drill (GATE-04):** **Pending** — IT confirmation of off-host network share / NAS mount and execution/sign-off of restore drill on separate machine before Phase 9 go-live.
 
 ---
 

@@ -19,9 +19,9 @@ graph TD
         Design["Build Gate: CLEARED WITH CONDITIONS<br/>CPD-001 to CPD-008 Architecture Cleared<br/>CPD-009 Deferred to Hardening"]
     end
 
-    subgraph Go_Live_Gates["Three Required Go-Live Conditions"]
-        G1["Condition 1: One PO Approval Record (CPD-001 to CPD-008)"]
-        G2["Condition 2: CPD-003 Holiday List (Before Data Load)"]
+    subgraph Go_Live_Gates["Operational Go-Live Conditions"]
+        G1["Condition 1: One PO Approval Record (CPD-001 to CPD-008) — Complete<br/>(External evidence optional)"]
+        G2["Condition 2: CPD-003 Annual Holiday List (Before Data Load)"]
         G3["Condition 3: CPD-010 IT Network, Backup & Restore Drill Sign-off"]
     end
 
@@ -37,12 +37,12 @@ graph TD
 
 ---
 
-## 2. Outstanding Go-Live Gates Register (Tracked as PENDING)
+## 2. Core Pilot Go-Live Gates Register
 
 | Gate ID | Prerequisite Name | Responsible Party | Current Status | Blocker Description & Next Step |
 |---|---|---|---|---|
-| **GATE-01** | **Consolidated PO Approval Record** | **Vivek (Product Owner)** | **Recorded in decision register; awaiting formal evidence reference** | Consolidated approval record for CPD-001 through CPD-008 recorded in decision register; awaiting formal evidence reference `[APPROVAL_EVIDENCE_REFERENCE]` before go-live. CPD-009 excluded (deferred to Operational Hardening). |
-| **GATE-02** | **2026 Public Holiday List** | **Vivek (Product Owner)** | **PENDING** | Calendar calculation cannot determine accurate working days without official holiday dates. Awaiting completed intake table in `docs/PILOT-DECISION-APPROVAL-FORM.md` (`[HOLIDAY_LIST]`, `[HOLIDAY_LIST_SOURCE]`, `[HOLIDAY_LIST_APPROVER]`) before pilot data load. |
+| **GATE-01** | **Consolidated PO Approval Record** | **Vivek (Product Owner)** | **Complete — Product Owner decisions CPD-001 through CPD-008 are recorded in the Core Pilot decision register. External approval evidence reference is optional and may be added when available.** | CPD-001 through CPD-008 are approved and recorded in the Core Pilot decision register. CPD-009 remains deferred to Operational Hardening and is excluded from Core Pilot scope. An external approval evidence reference is optional (`[APPROVAL_EVIDENCE_REFERENCE]`); its absence does not block Core Pilot governance or pilot readiness. |
+| **GATE-02** | **Annual Public Holiday Calendar Intake** | **Vivek (Product Owner)** | **PENDING for the applicable planning year (current target: 2026)** | Holiday calendars are maintained separately for each calendar year. A calendar record for one year must not replace, alter, or invalidate a prior-year calendar record. For each year, a validated official holiday list is required before live capacity planning, assignment planning, or pilot data loading for that year. Organization baseline: `Asia/Kolkata`, Monday–Friday, 8 hours/day. Do not insert guessed, web-scraped, or placeholder holiday dates into the planning database. Awaiting completed intake table in `docs/PILOT-DECISION-APPROVAL-FORM.md` (`[HOLIDAY_LIST]`). Metadata placeholders `[HOLIDAY_LIST_SOURCE]` and `[HOLIDAY_LIST_APPROVER]` are optional metadata (optional when available; absence does not invalidate an otherwise authorized holiday calendar). |
 | **GATE-03** | **IT Network Access & SSO Waiver** | **IT Department / Vivek** | **PENDING** | Corporate IT confirmation of LAN/VPN network access and waiver permitting local Argon2id authentication for pilot. |
 | **GATE-04** | **Designated Backup Destination & Restore Test** | **IT Infrastructure / Designated Operator** | **PENDING** | Designated off-host storage path and successful restore drill sign-off on recovery host with verified row counts before go-live. |
 
@@ -72,7 +72,7 @@ Prior to launching Docker Compose containers on the designated pilot server, exe
   * [ ] Product: `EMS ECU Development` (`PROD-EMS-ECU`) is created as the single top-level product.
   * [ ] Work-Area Tags: Exactly 14 tags created in `work_area_tags`.
   * [ ] Calendar: Organization time zone verified as `Asia/Kolkata`, standard hours = 8.00.
-  * [ ] Public Holidays: Verified populated from approved 2026 holiday list (GATE-02: `[HOLIDAY_LIST]`).
+  * [ ] Public Holidays: Verified populated from approved annual holiday list for applicable planning year (2026) (GATE-02: `[HOLIDAY_LIST]`).
 
 ---
 
@@ -161,13 +161,16 @@ This sign-off form must be formally executed prior to onboarding pilot engineeri
 AUTOMOTIVE PROJECT & RESOURCE MANAGEMENT SYSTEM — PILOT GO-LIVE SIGN-OFF
 ================================================================================
 
-GATE-01 — Consolidated Product Owner Approval Record:
-[ ] Formal evidence reference recorded for CPD-001 through CPD-008
-Reference ID: [APPROVAL_EVIDENCE_REFERENCE]  Approver: Vivek (Product Owner)
+GATE-01 — Consolidated Product Owner Approval Evidence:
+[x] Complete — Product Owner decisions CPD-001 through CPD-008 are recorded in the Core Pilot decision register. External approval evidence reference is optional and may be added when available.
+Approver: Vivek (Product Owner)  External Reference ID (Optional when available): [APPROVAL_EVIDENCE_REFERENCE]
+(CPD-009 excluded per Operational Hardening deferral; absence of external reference does not block governance or go-live)
 
-GATE-02 — 2026 Public Holiday Calendar List:
-[ ] Received and validated official holiday list (Asia/Kolkata, Mon-Fri, 8h/day)
-Date Received: _______________  Source: [HOLIDAY_LIST_SOURCE]  Verified by: [HOLIDAY_LIST_APPROVER]
+GATE-02 — Annual Holiday Calendar Intake:
+[ ] Received and validated official holiday list for applicable planning year (2026) (Asia/Kolkata, Mon-Fri, 8h/day)
+Planning Year: 2026 (separate annual record; prior years preserved)
+Date Received: _______________  Source (Optional): [HOLIDAY_LIST_SOURCE]  Verified by (Optional): [HOLIDAY_LIST_APPROVER]
+(Absence of optional metadata does not invalidate an otherwise authorized holiday calendar)
 
 GATE-03 — Corporate IT SSO Waiver:
 [ ] Formally granted by Corporate IT Security for pilot duration
