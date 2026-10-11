@@ -2,7 +2,7 @@
 ## EMS ECU Development — Pilot Approval Register & Status
 
 **Status:** **CORE PILOT BUILD GATE: CLEARED WITH CONDITIONS (2026-10-10)**
-**Summary:** Build authorized to proceed against technical design baseline. CPD-001 through CPD-008 are approved by Product Owner Vivek (GATE-01 Complete; external approval evidence reference `[APPROVAL_EVIDENCE_REFERENCE]` is optional and does not block go-live). CPD-009 is deferred to Operational Hardening (not awaiting a Core Pilot decision or blocking implementation). Required before go-live: (1) GATE-02 CPD-003 validated annual holiday list for applicable planning year (2026) before data load (`[HOLIDAY_LIST]`), (2) GATE-03 & GATE-04 CPD-010 IT network access, backup location, and restore drill confirmation.
+**Summary:** Build authorized to proceed against technical design baseline. CPD-001 through CPD-008 are approved by Product Owner Vivek (GATE-01 Complete; external approval evidence reference `[APPROVAL_EVIDENCE_REFERENCE]` is optional and does not block go-live). CPD-009 is deferred to Operational Hardening (not awaiting a Core Pilot decision or blocking implementation). Required before go-live / production forecasting: (1) GATE-02 CPD-003 manual annual holiday calendar entry and validation for applicable planning year (2026) before production use of holiday-sensitive capacity forecasts (`[HOLIDAY_LIST]`; deferred during implementation), (2) GATE-03 & GATE-04 CPD-010 IT network access, backup location, and restore drill confirmation.
 
 ---
 
@@ -62,7 +62,7 @@
 - **Working days:** Monday through Friday (5 days per week).
 - **Working hours:** 8 hours per day (40 hours per week base capacity).
 - **Organization time zone:** `Asia/Kolkata`.
-- **Public holiday calendar:** **Pending (GATE-02);** Holiday calendars are maintained separately per calendar year (prior-year records preserved). Vivek will provide the validated holiday list for the applicable planning year (2026) before pilot data is loaded and capacity planning begins. Holiday source (`[HOLIDAY_LIST_SOURCE]`) and approver/reference (`[HOLIDAY_LIST_APPROVER]`) are optional metadata; their absence does not invalidate an otherwise authorized holiday calendar.
+- **Public holiday calendar:** **Production-readiness configuration prerequisite (GATE-02);** Public holiday dates are deferred for now and do not block implementation, automated testing, local development, or non-production validation. Holiday calendars are maintained separately per calendar year (prior-year records preserved). An authorized administrator will manually enter and validate the applicable annual holiday list before production use of holiday-sensitive capacity forecasts. Holiday source (`[HOLIDAY_LIST_SOURCE]`) and approver/reference (`[HOLIDAY_LIST_APPROVER]`) are optional metadata; their absence does not invalidate an otherwise authorized holiday calendar.
 
 ---
 
@@ -163,7 +163,7 @@ Approver: Vivek (Product Owner)
 
 GATE STATUS & OPERATIONAL PREREQUISITES:
 [x] GATE-01 — Consolidated PO approval record covering CPD-001 through CPD-008 (Complete — Product Owner decisions CPD-001 through CPD-008 are recorded in the Core Pilot decision register. External approval evidence reference [APPROVAL_EVIDENCE_REFERENCE] is optional and may be added when available; CPD-009 excluded per deferral)
-[ ] GATE-02 — Annual holiday calendar intake (Pending for applicable planning year 2026; validated official list required before pilot data seeding [HOLIDAY_LIST]; source [HOLIDAY_LIST_SOURCE] and approver [HOLIDAY_LIST_APPROVER] are optional metadata; prior-year records preserved)
+[ ] GATE-02 — Annual holiday calendar configuration (Production-readiness prerequisite; deferred from implementation; manual entry and validation required before production use of holiday-sensitive capacity forecasts for applicable planning year 2026; [HOLIDAY_LIST]; source [HOLIDAY_LIST_SOURCE] and approver [HOLIDAY_LIST_APPROVER] optional metadata; prior-year records preserved)
 [ ] GATE-03 — IT confirmation of local-login / SSO exception
 [ ] GATE-04 — Designated backup storage location / network share & restore drill sign-off
 ```

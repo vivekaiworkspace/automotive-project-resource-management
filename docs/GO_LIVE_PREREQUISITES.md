@@ -21,7 +21,7 @@ graph TD
 
     subgraph Go_Live_Gates["Operational Go-Live Conditions"]
         G1["Condition 1: One PO Approval Record (CPD-001 to CPD-008) — Complete<br/>(External evidence optional)"]
-        G2["Condition 2: CPD-003 Annual Holiday List (Before Data Load)"]
+        G2["Condition 2: CPD-003 Annual Holiday Configuration<br/>(Production-readiness prerequisite; deferred from implementation)"]
         G3["Condition 3: CPD-010 IT Network, Backup & Restore Drill Sign-off"]
     end
 
@@ -42,7 +42,7 @@ graph TD
 | Gate ID | Prerequisite Name | Responsible Party | Current Status | Blocker Description & Next Step |
 |---|---|---|---|---|
 | **GATE-01** | **Consolidated PO Approval Record** | **Vivek (Product Owner)** | **Complete — Product Owner decisions CPD-001 through CPD-008 are recorded in the Core Pilot decision register. External approval evidence reference is optional and may be added when available.** | CPD-001 through CPD-008 are approved and recorded in the Core Pilot decision register. CPD-009 remains deferred to Operational Hardening and is excluded from Core Pilot scope. An external approval evidence reference is optional (`[APPROVAL_EVIDENCE_REFERENCE]`); its absence does not block Core Pilot governance or pilot readiness. |
-| **GATE-02** | **Annual Public Holiday Calendar Intake** | **Vivek (Product Owner)** | **PENDING for the applicable planning year (current target: 2026)** | Holiday calendars are maintained separately for each calendar year. A calendar record for one year must not replace, alter, or invalidate a prior-year calendar record. For each year, a validated official holiday list is required before live capacity planning, assignment planning, or pilot data loading for that year. Organization baseline: `Asia/Kolkata`, Monday–Friday, 8 hours/day. Do not insert guessed, web-scraped, or placeholder holiday dates into the planning database. Awaiting completed intake table in `docs/PILOT-DECISION-APPROVAL-FORM.md` (`[HOLIDAY_LIST]`). Metadata placeholders `[HOLIDAY_LIST_SOURCE]` and `[HOLIDAY_LIST_APPROVER]` are optional metadata (optional when available; absence does not invalidate an otherwise authorized holiday calendar). |
+| **GATE-02** | **Production-Readiness Annual Holiday Calendar Configuration** | **Authorized Administrator / Vivek** | **PENDING for production forecasting (deferred from implementation; current target: 2026)** | Public holiday dates are deferred for now and are NOT required to continue implementation, automated testing, local development, or non-production validation. Base calendar remains `Asia/Kolkata`, Monday–Friday, 8 hours/day; individual approved leave and calendar exceptions remain supported. Holiday calendars are maintained separately for each calendar year (prior-year records preserved). Before production use of holiday-sensitive capacity forecasts or pilot go-live, an authorized administrator will manually enter and validate the applicable annual holiday list (`[HOLIDAY_LIST]`). Do not insert guessed, web-scraped, or placeholder holiday dates into the database. Metadata placeholders `[HOLIDAY_LIST_SOURCE]` and `[HOLIDAY_LIST_APPROVER]` are optional metadata. |
 | **GATE-03** | **IT Network Access & SSO Waiver** | **IT Department / Vivek** | **PENDING** | Corporate IT confirmation of LAN/VPN network access and waiver permitting local Argon2id authentication for pilot. |
 | **GATE-04** | **Designated Backup Destination & Restore Test** | **IT Infrastructure / Designated Operator** | **PENDING** | Designated off-host storage path and successful restore drill sign-off on recovery host with verified row counts before go-live. |
 
@@ -72,7 +72,7 @@ Prior to launching Docker Compose containers on the designated pilot server, exe
   * [ ] Product: `EMS ECU Development` (`PROD-EMS-ECU`) is created as the single top-level product.
   * [ ] Work-Area Tags: Exactly 14 tags created in `work_area_tags`.
   * [ ] Calendar: Organization time zone verified as `Asia/Kolkata`, standard hours = 8.00.
-  * [ ] Public Holidays: Verified populated from approved annual holiday list for applicable planning year (2026) (GATE-02: `[HOLIDAY_LIST]`).
+  * [ ] Public Holidays: Deferred during implementation; before production holiday-sensitive forecasting/go-live, verify populated from manually entered and validated annual holiday list for applicable planning year (2026) (GATE-02: `[HOLIDAY_LIST]`).
 
 ---
 
@@ -166,10 +166,10 @@ GATE-01 — Consolidated Product Owner Approval Evidence:
 Approver: Vivek (Product Owner)  External Reference ID (Optional when available): [APPROVAL_EVIDENCE_REFERENCE]
 (CPD-009 excluded per Operational Hardening deferral; absence of external reference does not block governance or go-live)
 
-GATE-02 — Annual Holiday Calendar Intake:
-[ ] Received and validated official holiday list for applicable planning year (2026) (Asia/Kolkata, Mon-Fri, 8h/day)
+GATE-02 — Production-Readiness Annual Holiday Calendar Configuration (Deferred from implementation):
+[ ] Manually entered and validated official holiday list before production holiday-sensitive forecasting for applicable planning year (2026) (Asia/Kolkata, Mon-Fri, 8h/day)
 Planning Year: 2026 (separate annual record; prior years preserved)
-Date Received: _______________  Source (Optional): [HOLIDAY_LIST_SOURCE]  Verified by (Optional): [HOLIDAY_LIST_APPROVER]
+Date Configured: _____________  Source (Optional): [HOLIDAY_LIST_SOURCE]  Verified by (Optional): [HOLIDAY_LIST_APPROVER]
 (Absence of optional metadata does not invalidate an otherwise authorized holiday calendar)
 
 GATE-03 — Corporate IT SSO Waiver:
