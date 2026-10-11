@@ -41,8 +41,8 @@ graph TD
 
 | Gate ID | Prerequisite Name | Responsible Party | Current Status | Blocker Description & Next Step |
 |---|---|---|---|---|
-| **GATE-01** | **Consolidated PO Approval Record** | **Vivek (Product Owner)** | **PENDING** | One formal Product Owner approval record covering CPD-001 through CPD-008 (excluding CPD-009) must be filed before go-live. |
-| **GATE-02** | **2026 Public Holiday List** | **Vivek (Product Owner)** | **PENDING** | Calendar calculation cannot determine accurate working days without official holiday dates. Must be provided before pilot data load. |
+| **GATE-01** | **Consolidated PO Approval Record** | **Vivek (Product Owner)** | **Recorded in decision register; awaiting formal evidence reference** | Consolidated approval record for CPD-001 through CPD-008 recorded in decision register; awaiting formal evidence reference `[APPROVAL_EVIDENCE_REFERENCE]` before go-live. CPD-009 excluded (deferred to Operational Hardening). |
+| **GATE-02** | **2026 Public Holiday List** | **Vivek (Product Owner)** | **PENDING** | Calendar calculation cannot determine accurate working days without official holiday dates. Awaiting completed intake table in `docs/PILOT-DECISION-APPROVAL-FORM.md` (`[HOLIDAY_LIST]`, `[HOLIDAY_LIST_SOURCE]`, `[HOLIDAY_LIST_APPROVER]`) before pilot data load. |
 | **GATE-03** | **IT Network Access & SSO Waiver** | **IT Department / Vivek** | **PENDING** | Corporate IT confirmation of LAN/VPN network access and waiver permitting local Argon2id authentication for pilot. |
 | **GATE-04** | **Designated Backup Destination & Restore Test** | **IT Infrastructure / Designated Operator** | **PENDING** | Designated off-host storage path and successful restore drill sign-off on recovery host with verified row counts before go-live. |
 
@@ -58,7 +58,7 @@ Prior to launching Docker Compose containers on the designated pilot server, exe
 * [ ] **Network Exposure:** Host bound only to corporate LAN / VPN interfaces. Verified that public internet ingress is blocked.
 * [ ] **Port Availability:** Ports `80` (HTTP redirect) and `443` (HTTPS) available and bound to Nginx. Verified port `5432` is not exposed to host network.
 * [ ] **Storage Mount:** Verified Docker volume `postgres_data` has at least 50 GB free disk space.
-* [ ] **Backup Mount:** Verified `/var/backups/db` mounts the designated separate network share / NAS (Gate 3).
+* [ ] **Backup Mount:** Verified `/var/backups/db` mounts the designated separate network share / NAS (GATE-04).
 
 ### 3.2 Secrets & Configuration Bootstrapping
 * [ ] File `.env` created in root deployment directory with permissions `chmod 400 .env` (read-only root).
@@ -72,7 +72,7 @@ Prior to launching Docker Compose containers on the designated pilot server, exe
   * [ ] Product: `EMS ECU Development` (`PROD-EMS-ECU`) is created as the single top-level product.
   * [ ] Work-Area Tags: Exactly 14 tags created in `work_area_tags`.
   * [ ] Calendar: Organization time zone verified as `Asia/Kolkata`, standard hours = 8.00.
-  * [ ] Public Holidays: Verified populated from approved 2026 holiday list (Gate 1).
+  * [ ] Public Holidays: Verified populated from approved 2026 holiday list (GATE-02: `[HOLIDAY_LIST]`).
 
 ---
 
@@ -161,22 +161,24 @@ This sign-off form must be formally executed prior to onboarding pilot engineeri
 AUTOMOTIVE PROJECT & RESOURCE MANAGEMENT SYSTEM — PILOT GO-LIVE SIGN-OFF
 ================================================================================
 
-Gate 1 — 2026 Public Holiday Calendar List:
-[ ] Received and seeded into database
-Date Received: _______________  Verified by: _____________________________
+GATE-01 — Consolidated Product Owner Approval Record:
+[ ] Formal evidence reference recorded for CPD-001 through CPD-008
+Reference ID: [APPROVAL_EVIDENCE_REFERENCE]  Approver: Vivek (Product Owner)
 
-Gate 2 — Corporate IT SSO Waiver:
+GATE-02 — 2026 Public Holiday Calendar List:
+[ ] Received and validated official holiday list (Asia/Kolkata, Mon-Fri, 8h/day)
+Date Received: _______________  Source: [HOLIDAY_LIST_SOURCE]  Verified by: [HOLIDAY_LIST_APPROVER]
+
+GATE-03 — Corporate IT SSO Waiver:
 [ ] Formally granted by Corporate IT Security for pilot duration
 Confirmation Reference / Ticket ID: ______________________________________
 IT Approver Name: ________________________________________________________
 
-Gate 3 — Designated Off-Host Backup Storage:
+GATE-04 — Designated Off-Host Backup Storage & Pre-Pilot Restore Test Drill:
 [ ] Network share / NAS confirmed separated from host machine
 Storage Mount Path: ______________________________________________________
 Storage Capacity Available: _____________________________________________
-
-Gate 4 — Pre-Pilot Restore Test Drill:
-[ ] Executed onto separate recovery machine
+[ ] Pre-pilot restore test drill executed onto separate recovery machine
 Drill Date: _______________  Operator Name: ______________________________
 Row Counts Verified: [ ] PASS / [ ] FAIL
 Target Environment Hostname / IP: ________________________________________

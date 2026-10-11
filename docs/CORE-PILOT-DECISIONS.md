@@ -11,9 +11,9 @@
 > **Build Gate Outcome: CLEARED WITH CONDITIONS (2026-10-10)**
 >
 > **Required before pilot go-live:**
-> 1. One Product Owner approval record covering CPD-001 to CPD-008, excluding CPD-009.
-> 2. CPD-003 calendar and holiday list before pilot data is loaded.
-> 3. CPD-010 IT confirmation of network access, backup location, and restore-test owner/date before go-live.
+> 1. One Product Owner approval record covering CPD-001 to CPD-008, excluding CPD-009 (GATE-01: Recorded in decision register; awaiting formal evidence reference `[APPROVAL_EVIDENCE_REFERENCE]`).
+> 2. CPD-003 calendar and holiday list before pilot data is loaded (GATE-02: Pending official intake `[HOLIDAY_LIST]`).
+> 3. CPD-010 IT confirmation of network access, backup location, and restore-test owner/date before go-live (GATE-03 / GATE-04).
 >
 > **Deferred to Operational Hardening:**
 > - CPD-009 detailed material-change thresholds and mandatory-reason policy.
@@ -443,10 +443,10 @@ The deployment model determines the container topology, the database connection 
 - [ ] Change — approved alternative:
 
 **Operational Prerequisites Pending (before pilot data load and go-live):**
-- 2026 company/public holiday list (to be provided by Vivek).
-- IT confirmation of local-login / SSO exception.
-- Backup destination or network share.
-- Restore-test owner and scheduled date.
+- GATE-01: Consolidated PO approval record covering CPD-001 through CPD-008 (Recorded in decision register; awaiting formal evidence reference `[APPROVAL_EVIDENCE_REFERENCE]`).
+- GATE-02: 2026 company/public holiday list (to be provided by Vivek via intake template; `[HOLIDAY_LIST]`).
+- GATE-03: IT confirmation of local-login / SSO exception.
+- GATE-04: Backup destination or network share, and restore-test owner and scheduled date.
 
 ---
 

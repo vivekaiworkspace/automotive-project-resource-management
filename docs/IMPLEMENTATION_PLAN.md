@@ -153,10 +153,10 @@ graph TD
 ## 3. Pending Operational Go-Live Gates
 
 The following items are preserved as **PENDING** and must be resolved before live pilot rollout:
-1. **2026 Company / Public Holiday List:** Vivek to provide the list before Phase 3 seed scripts are executed.
-2. **IT SSO Waiver Confirmation:** Formal IT waiver for local login before Phase 2 is deployed to production host.
-3. **Designated Backup Destination:** IT confirmation of off-host network share / NAS mount before Phase 9.
-4. **Restore Drill Sign-Off:** Execution and documented record of restore drill on separate machine before Phase 9 go-live.
+1. **Consolidated PO Approval Record (GATE-01):** Recorded in decision register; awaiting formal evidence reference `[APPROVAL_EVIDENCE_REFERENCE]` (CPD-001 through CPD-008; CPD-009 excluded per deferral).
+2. **2026 Company / Public Holiday List (GATE-02):** Vivek to provide official list via intake template before pilot data seeding (`[HOLIDAY_LIST]`).
+3. **IT SSO Waiver Confirmation (GATE-03):** Formal IT waiver for local login before production host deployment.
+4. **Designated Backup Destination & Restore Drill (GATE-04):** IT confirmation of off-host network share / NAS mount and execution/sign-off of restore drill on separate machine before Phase 9 go-live.
 
 ---
 

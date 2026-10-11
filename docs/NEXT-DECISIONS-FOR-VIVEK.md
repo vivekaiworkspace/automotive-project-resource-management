@@ -2,7 +2,7 @@
 ## EMS ECU Development — Pilot Approval Register & Status
 
 **Status:** **CORE PILOT BUILD GATE: CLEARED WITH CONDITIONS (2026-10-10)**
-**Summary:** Build authorized to proceed against technical design baseline. CPD-001 through CPD-008 are approved by Product Owner Vivek. CPD-009 is deferred to Operational Hardening (not awaiting a Core Pilot decision or blocking implementation). Required before go-live: (1) CPD-003 calendar/holiday list before data load, (2) CPD-010 IT network access, backup location, and restore drill confirmation.
+**Summary:** Build authorized to proceed against technical design baseline. CPD-001 through CPD-008 are approved by Product Owner Vivek. CPD-009 is deferred to Operational Hardening (not awaiting a Core Pilot decision or blocking implementation). Required before go-live: (1) GATE-01 formal evidence reference for consolidated approval of CPD-001–CPD-008 (`[APPROVAL_EVIDENCE_REFERENCE]`), (2) GATE-02 CPD-003 official holiday list before data load (`[HOLIDAY_LIST]`), (3) GATE-03 & GATE-04 CPD-010 IT network access, backup location, and restore drill confirmation.
 
 ---
 
@@ -162,10 +162,10 @@ Approver: Vivek (Product Owner)
 [x] CPD-010 — Local deployment: LAN+VPN, PostgreSQL, Docker Compose, separate backup (Approved 2026-10-10)
 
 STILL PENDING / OPERATIONAL PREREQUISITES (Required before pilot go-live):
-[ ] 2026 company / public holiday list (Vivek to provide before pilot data seeding)
-[ ] IT confirmation of local-login / SSO exception
-[ ] Designated backup storage location / network share
-[ ] Restore-test owner and scheduled drill date
+[ ] GATE-01 — Consolidated PO approval record covering CPD-001 through CPD-008 (Recorded in decision register; awaiting formal evidence reference [APPROVAL_EVIDENCE_REFERENCE])
+[ ] GATE-02 — 2026 public holiday list (Vivek to provide official list via intake template before pilot data seeding [HOLIDAY_LIST])
+[ ] GATE-03 — IT confirmation of local-login / SSO exception
+[ ] GATE-04 — Designated backup storage location / network share & restore drill sign-off
 ```
 
 ---
