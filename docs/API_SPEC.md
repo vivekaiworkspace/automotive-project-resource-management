@@ -290,14 +290,50 @@ All non-2xx responses return a consistent error structure:
 ### 6.2 Approve Leave
 * **Endpoint:** `POST /api/v1/leave/{id}/approve`
 * **Access:** Team Lead (own team), Resource Manager (in scope), Admin
-* **Response (200 OK):** Status becomes `APPROVED`. Immediately deducts 40h from net capacity and triggers cross-project overload checks.
+* **Response (200 OK):** Status becomes `APPROVED`. Immediately deducts net capacity for affected working days and triggers cross-project overload checks. Approver fields are never serialized to Team Leads.
 
-### 6.3 Query Leave (Server-Side Privacy Serialization — CPD-006)
+### 6.3 Reject Leave
+* **Endpoint:** `POST /api/v1/leave/{id}/reject`
+* **Access:** Team Lead (own team), Resource Manager (in scope), Admin
+* **Request:** Optional `{ "rejection_reason": "Project delivery conflict" }`
+* **Response (200 OK):** Status becomes `REJECTED`. Net capacity remains unreduced.
+
+### 6.4 Cancel Leave
+* **Endpoint:** `POST /api/v1/leave/{id}/cancel`
+* **Access:** Requester (self), Team Lead (own team), Resource Manager (in scope), Admin
+* **Response (200 OK):** Status becomes `CANCELLED`. Restores previously committed capacity if previously approved.
+
+### 6.5 Get Leave Record by ID
+* **Endpoint:** `GET /api/v1/leave/{id}`
+* **Access:** Role-matched scope (PM/TM: availability only; TL: own team only, dates & type; RM: in scope full; Admin: full). Out-of-scope requests return `403 Forbidden`.
+
+### 6.6 Query Leave (Server-Side Privacy Serialization — CPD-006)
 * **Endpoint:** `GET /api/v1/leave?start_date=2026-11-01&end_date=2026-11-30`
 * **Privacy Filtering Rules:**
-  * *Called by Project Manager or Peer Team Member:* `leave_type` and `leave_reason` are returned as `null`. Only duration and unavailable dates are returned.
-  * *Called by Team Lead:* `leave_type` is returned for own team members; `leave_reason` is `null`.
-  * *Called by Resource Manager (in scope) or Admin:* Full object returned.
+  * *Called by Project Manager or Peer Team Member:* `leave_type` and `leave_reason` are returned as `null`. Only duration and unavailable dates are returned. Approver identity is never returned.
+  * *Called by Team Lead:* `leave_type` is returned for own team members; `leave_reason` is `null`. Approver identity is never returned. Out-of-team leave records are excluded.
+  * *Called by Resource Manager (in scope) or Admin:* Full object returned within authorized scope.
+* **Response (200 OK):**
+```json
+{
+  "data": [
+    {
+      "id": "77777777-1111-2222-3333-444444444444",
+      "user_id": "40000000-0000-0000-0000-000000000005",
+      "start_date": "2026-11-16",
+      "end_date": "2026-11-20",
+      "unavailable_from": "2026-11-16",
+      "unavailable_to": "2026-11-20",
+      "duration_days": 5,
+      "duration_hours": 40.0,
+      "leave_type": "ANNUAL",
+      "leave_reason": null,
+      "status": "APPROVED"
+    }
+  ],
+  "count": 1
+}
+```
 
 ---
 

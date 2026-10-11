@@ -183,6 +183,9 @@ export async function handleEvaluateCapacity(req, res) {
 
     // Response redaction for privacy
     workload.approvedLeaves = redactApprovedLeavesForRole(workload.approvedLeaves, roles);
+    if (workload.pendingLeaves) {
+      workload.pendingLeaves = redactApprovedLeavesForRole(workload.pendingLeaves, roles);
+    }
 
     sendJson(res, 200, {
       conflict_level: finalLevel,

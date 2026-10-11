@@ -296,11 +296,40 @@ export async function evaluateUserWorkload({
   const leaveRes = await runner.query(leaveSql, [userId, member?.member_id || userId, rangeStart, rangeEnd]);
   const approvedLeaves = leaveRes.rows;
 
+  // 2b. Fetch pending leaves (for soft warning detection, CPD-006)
+  const pendingLeaveSql = `
+    SELECT 
+      id,
+      leave_type,
+      leave_reason,
+      approved_by_user_id,
+      TO_CHAR(start_date, 'YYYY-MM-DD') AS start_date,
+      TO_CHAR(end_date, 'YYYY-MM-DD') AS end_date,
+      status
+    FROM leave_records
+    WHERE (user_id = $1 OR member_id = $2)
+      AND status = 'PENDING'
+      AND start_date <= $4::date
+      AND end_date >= $3::date
+  `;
+  const pendingLeaveRes = await runner.query(pendingLeaveSql, [userId, member?.member_id || userId, rangeStart, rangeEnd]);
+  const pendingLeaves = pendingLeaveRes.rows;
+
+  let hasPendingLeaveOverlap = false;
+  if (proposedPlannedHours > 0 || existingAssignments.length > 0) {
+    for (const pl of pendingLeaves) {
+      if (pl.start_date <= endDate && pl.end_date >= startDate) {
+        hasPendingLeaveOverlap = true;
+        break;
+      }
+    }
+  }
+
   const totalProposedWorkingDays = getWorkingDaysInRange(startDate, endDate);
 
   let peakUtilization = 0.0;
   let hasHardConflict = false;
-  let hasSoftWarning = false;
+  let hasSoftWarning = hasPendingLeaveOverlap;
 
   const processedWeeks = weeklyBuckets.map(w => {
     // Calculate leave hours in this week
@@ -395,6 +424,8 @@ export async function evaluateUserWorkload({
     weeks: processedWeeks,
     conflictingAssignments: existingAssignments,
     approvedLeaves,
+    pendingLeaves,
+    hasPendingLeaveWarning: hasPendingLeaveOverlap,
   };
 }
 
@@ -1572,11 +1603,16 @@ export async function saveAssignmentWithCapacityValidation({
             : 'Capacity Conflict: assignment blocked unless an authorized override is recorded (minimum 10 characters).'
         );
         err.statusCode = 409;
+        err.code = 'CAPACITY_HARD_CONFLICT';
         err.conflictDetails = {
           conflict_level: finalConflictLevel,
           conflict_label: finalLabel,
           case: createdCase,
           workload,
+          planned_utilization: workload.peakUtilizationPercent,
+          member_id: userId,
+          threshold: 100.00,
+          requires_override: true,
         };
         throw err;
       }
