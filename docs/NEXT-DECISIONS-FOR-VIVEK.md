@@ -2,7 +2,7 @@
 ## EMS ECU Development — Pilot Approval Register & Status
 
 **Status:** **CORE PILOT BUILD GATE: CLEARED WITH CONDITIONS (2026-10-10)**
-**Summary:** Build authorized to proceed against technical design baseline. CPD-001 through CPD-008 are approved by Product Owner Vivek. CPD-009 is deferred to Operational Hardening (not awaiting a Core Pilot decision or blocking implementation). Required before go-live: (1) GATE-01 formal evidence reference for consolidated approval of CPD-001–CPD-008 (`[APPROVAL_EVIDENCE_REFERENCE]`), (2) GATE-02 CPD-003 official holiday list before data load (`[HOLIDAY_LIST]`), (3) GATE-03 & GATE-04 CPD-010 IT network access, backup location, and restore drill confirmation.
+**Summary:** Build authorized to proceed against technical design baseline. CPD-001 through CPD-008 are approved by Product Owner Vivek (GATE-01 Complete; external approval evidence reference `[APPROVAL_EVIDENCE_REFERENCE]` is optional and does not block go-live). CPD-009 is deferred to Operational Hardening (not awaiting a Core Pilot decision or blocking implementation). Required before go-live: (1) GATE-02 CPD-003 validated annual holiday list for applicable planning year (2026) before data load (`[HOLIDAY_LIST]`), (2) GATE-03 & GATE-04 CPD-010 IT network access, backup location, and restore drill confirmation.
 
 ---
 
@@ -62,7 +62,7 @@
 - **Working days:** Monday through Friday (5 days per week).
 - **Working hours:** 8 hours per day (40 hours per week base capacity).
 - **Organization time zone:** `Asia/Kolkata`.
-- **Public holiday calendar:** **Pending;** Vivek will provide the 2026 holiday list before pilot data is loaded and capacity planning begins.
+- **Public holiday calendar:** **Pending (GATE-02);** Holiday calendars are maintained separately per calendar year (prior-year records preserved). Vivek will provide the validated holiday list for the applicable planning year (2026) before pilot data is loaded and capacity planning begins. Holiday source (`[HOLIDAY_LIST_SOURCE]`) and approver/reference (`[HOLIDAY_LIST_APPROVER]`) are optional metadata; their absence does not invalidate an otherwise authorized holiday calendar.
 
 ---
 
@@ -161,9 +161,9 @@ Approver: Vivek (Product Owner)
 [-] CPD-009 — Material change audit thresholds (Deferred to Operational Hardening; not Core Pilot scope)
 [x] CPD-010 — Local deployment: LAN+VPN, PostgreSQL, Docker Compose, separate backup (Approved 2026-10-10)
 
-STILL PENDING / OPERATIONAL PREREQUISITES (Required before pilot go-live):
-[ ] GATE-01 — Consolidated PO approval record covering CPD-001 through CPD-008 (Recorded in decision register; awaiting formal evidence reference [APPROVAL_EVIDENCE_REFERENCE])
-[ ] GATE-02 — 2026 public holiday list (Vivek to provide official list via intake template before pilot data seeding [HOLIDAY_LIST])
+GATE STATUS & OPERATIONAL PREREQUISITES:
+[x] GATE-01 — Consolidated PO approval record covering CPD-001 through CPD-008 (Complete — Product Owner decisions CPD-001 through CPD-008 are recorded in the Core Pilot decision register. External approval evidence reference [APPROVAL_EVIDENCE_REFERENCE] is optional and may be added when available; CPD-009 excluded per deferral)
+[ ] GATE-02 — Annual holiday calendar intake (Pending for applicable planning year 2026; validated official list required before pilot data seeding [HOLIDAY_LIST]; source [HOLIDAY_LIST_SOURCE] and approver [HOLIDAY_LIST_APPROVER] are optional metadata; prior-year records preserved)
 [ ] GATE-03 — IT confirmation of local-login / SSO exception
 [ ] GATE-04 — Designated backup storage location / network share & restore drill sign-off
 ```

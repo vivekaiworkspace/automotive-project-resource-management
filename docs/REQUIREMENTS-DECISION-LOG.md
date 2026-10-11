@@ -21,6 +21,17 @@
 
 ---
 
+## Product Owner Decisions — 2026-10-11 (Policy Clarification: GATE-01 Evidence & Annual Calendars)
+
+Date: 2026-10-11
+Decision:
+- GATE-01 external approval evidence references are optional; the decision register is sufficient for Core Pilot governance.
+- Annual holiday calendars are separate, preserved records.
+- Holiday source and approver/reference are optional metadata.
+- A validated holiday list remains required before planning or pilot data loading for its applicable year.
+
+---
+
 ## 1. Ambiguous Requirements
 
 ### 1.1 "Product" definition — Resolved (CPD-001)
@@ -314,7 +325,7 @@
 - **Working days:** Monday through Friday (5 days/week)
 - **Standard working hours:** 8 hours per day (40 hours/week)
 - **Organization time zone:** `Asia/Kolkata`
-- **Public holiday calendar:** Pending; Vivek will provide the 2026 holiday list before pilot data is loaded and capacity planning begins.
+- **Public holiday calendar:** Pending (GATE-02); annual calendars are maintained separately per calendar year (prior-year records preserved); Vivek will provide the validated holiday list for the applicable planning year (2026) before pilot data is loaded and capacity planning begins.
 
 ---
 
