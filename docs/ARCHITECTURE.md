@@ -1,9 +1,9 @@
 # Automotive Project & Resource Management System
 ## System Architecture Specification — MVP Core Pilot
 
-**Document Version:** 1.0  
-**Status:** Approved Technical Design  
-**Authoritative Sources:** PRD.md v1.0, docs/MVP-SCOPE.md, docs/CORE-PILOT-DECISIONS.md, docs/NEXT-DECISIONS-FOR-VIVEK.md  
+**Document Version:** 1.0
+**Status:** Approved Technical Design
+**Authoritative Sources:** PRD.md v1.0, docs/MVP-SCOPE.md, docs/CORE-PILOT-DECISIONS.md, docs/NEXT-DECISIONS-FOR-VIVEK.md
 
 ---
 
@@ -31,7 +31,7 @@ In compliance with project governance, all architectural components are categori
   * Activities (max 1 sub-activity level) with non-linear status workflow (CPD-007).
   * Individual assignments in hours, cross-project load aggregation, 90% soft warning, and 100% hard block with PM/Admin override (CPD-002, CPD-004, CPD-005).
   * Five pilot roles with scoped permissions and leave privacy masking (CPD-006, CPD-008).
-  * Material change detection (>3 days, >20% effort, reassignments) with immutable audit logging (CPD-009).
+  * Immutable audit logging for terminal overrides, capacity overrides, and leave workflow (CPD-004, CPD-006, CPD-007; material-change threshold rules deferred per CPD-009).
   * Docker Compose on-premise single-server deployment with separate backup procedure (CPD-010).
 
 * **Level 2: Approved Future-Compatible Architecture Concepts (Deferred Appendix in Data Model):**
@@ -61,10 +61,10 @@ graph TD
 
     subgraph Host_Boundary["Host / Docker Compose Container Boundary"]
         Proxy["Reverse Proxy (Nginx - TLS Termination)"]
-        
+
         subgraph App_Server["Modular Monolith Application Core"]
             Router["HTTP Router & Middleware (Auth & Scope Guards)"]
-            
+
             subgraph Modules["Domain Modules"]
                 IAM["Identity & Access Module (IAM)"]
                 OrgMod["Organization & Calendar Module"]
@@ -135,8 +135,8 @@ graph TD
    * Enforces approval chains: Team Lead approves for team; Resource Manager in scope; System Admin for all.
 
 7. **Audit & Governance Module (`audit`):**
-   * Intercepts mutations and appends immutable audit records.
-   * Evaluates material change rules: date change (shift of >= 3 working days), estimate change (change of >= 20 percent), any assignee change on a Planned or In Progress activity, any priority change on a Planned or In Progress activity, completions, cancellations, and hard conflict overrides require a written reason >= 10 characters (CPD-009).
+   * Appends immutable audit records for state changes and administrative actions.
+   * Enforces mandatory justification (>= 10 characters) for terminal administrative overrides (CPD-007) and capacity hard-block overrides (CPD-004). Detailed material-change threshold rules (date shift >= 3 days, estimate change >= 20%, ordinary-edit mandatory reasons) are deferred to Operational Hardening (CPD-009).
 
 ---
 
@@ -163,10 +163,10 @@ stateDiagram-v2
 
     In_Progress --> Blocked: Blocker Encountered
     Blocked --> In_Progress: Blocker Resolved
-    
+
     In_Progress --> Done: Work Completed
     Blocked --> Done: Work Completed
-    
+
     In_Progress --> Cancelled: Work Abandoned
     Blocked --> Cancelled: Work Abandoned
 
@@ -259,7 +259,7 @@ graph LR
 | Leave Capacity & Privacy | ARCH § 3.1 | CPD-006, FR-RES-004, PRD Security | Approved leave deducts; role-based server-side field masking |
 | Non-Linear Status Workflow | ARCH § 4 | CPD-007, FR-ACT-004, BR-008 | Terminal states reachable from any active state; admin reopen |
 | Five Pilot Roles | ARCH § 3.1 | CPD-008, PRD Permissions Matrix | Scoped permissions; multi-role support |
-| Material Change Reason Rules | ARCH § 3.1 | CPD-009, BR-011, PRD Audit | Date shift >= 3 working days, estimate change >= 20 percent, min 10 char reason |
+| Material Change Reason Rules | ARCH § 3.1 | CPD-009, BR-011, PRD Audit | Deferred to Operational Hardening; overrides require reason in Core Pilot |
 | LAN/VPN & Local Auth Deployment | ARCH § 5 | CPD-010, Architecture Deployment | Docker Compose single server; pg_dump off-server backup |
 
 ---
@@ -267,6 +267,7 @@ graph LR
 ## 7. Out of Scope / Deferred Items (MVP Operational Hardening & Post-MVP)
 
 The following capabilities are explicitly deferred from the Core Pilot architecture:
+* **Material-Change Threshold Rules & Interceptors:** (CPD-009 deferred to Operational Hardening; date shifts >= 3 days, estimate changes >= 20%, and ordinary-edit reason prompts excluded from Core Pilot).
 * **Active Dependency Scheduling Engine:** Automatic push of downstream activities upon predecessor movement (deferred to Operational Hardening; schema compatibility reserved).
 * **Predecessor Cancellation Active Review UI:** Automated dependency risk flag engine (deferred to Operational Hardening).
 * **Corporate SSO / Active Directory / OIDC:** (Deferred to Release 2; local authentication approved for pilot).

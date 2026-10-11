@@ -1,9 +1,9 @@
 # Automotive Project & Resource Management System
 ## REST API Specification — MVP Core Pilot
 
-**Document Version:** 1.0  
-**Status:** Approved Technical Design  
-**Authoritative Sources:** PRD.md v1.0, docs/MVP-SCOPE.md, docs/CORE-PILOT-DECISIONS.md, docs/ARCHITECTURE.md, docs/DATA_MODEL.md  
+**Document Version:** 1.0
+**Status:** Approved Technical Design
+**Authoritative Sources:** PRD.md v1.0, docs/MVP-SCOPE.md, docs/CORE-PILOT-DECISIONS.md, docs/ARCHITECTURE.md, docs/DATA_MODEL.md
 
 ---
 
@@ -158,15 +158,14 @@ All non-2xx responses return a consistent error structure:
 ```
 * **Response (201 Created):** Returns created activity with generated `code: "PRJ-EMS-GEN3-1001"` and `status: "DRAFT"`.
 
-### 4.2 Update Activity (Material Change Evaluation — CPD-009)
+### 4.2 Update Activity
 * **Endpoint:** `PATCH /api/v1/activities/{id}`
 * **Access:** `PROJECT_MANAGER` (assigned project), `SYSTEM_ADMIN`
-* **Validation Rule:** If start or due date shifts >= 3 working days, or current estimate changes >= 20 percent, `change_reason` is **mandatory (min 10 chars)**.
+* **Scope Note:** Detailed material-change threshold validation (shift of >= 3 working days, estimate change of >= 20 percent) and ordinary-edit mandatory reason prompts are deferred to Operational Hardening (CPD-009). In Core Pilot, standard activity edits are saved without mandatory reason prompts.
 * **Request:**
 ```json
 {
-  "due_date": "2026-11-27",
-  "change_reason": "Customer release schedule pushed by OEM validation team"
+  "due_date": "2026-11-27"
 }
 ```
 * **Response (200 OK):** Saves update and writes immutable entry to `audit_log`.
@@ -340,6 +339,7 @@ All non-2xx responses return a consistent error structure:
 ## 7. Out of Scope / Deferred Endpoints (Operational Hardening)
 
 The following endpoints are **explicitly excluded** from the Core Pilot API:
+* Material-change threshold validation and mandatory-reason prompts for ordinary edits (deferred to Operational Hardening per CPD-009).
 * `POST /api/v1/dependencies` (Finish-to-Start dependency creation deferred to Operational Hardening).
 * `GET /api/v1/critical-path` (Critical path calculation deferred).
 * `POST /api/v1/baselines` (Baseline snapshots deferred to Operational Hardening).

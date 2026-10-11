@@ -1,9 +1,9 @@
 # Automotive Project & Resource Management System
 ## Database Data Model & Schema Specification — MVP Core Pilot
 
-**Document Version:** 1.1  
-**Status:** **Approved Technical Design by Product Owner (Vivek, 2026-10-10)**  
-**Authoritative Sources:** PRD.md v1.0, docs/MVP-SCOPE.md, docs/CORE-PILOT-DECISIONS.md, docs/ARCHITECTURE.md  
+**Document Version:** 1.1
+**Status:** **Approved Technical Design by Product Owner (Vivek, 2026-10-10)**
+**Authoritative Sources:** PRD.md v1.0, docs/MVP-SCOPE.md, docs/CORE-PILOT-DECISIONS.md, docs/ARCHITECTURE.md
 
 ---
 
@@ -357,32 +357,32 @@ CREATE TABLE activities (
     status VARCHAR(30) NOT NULL DEFAULT 'DRAFT',
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    
+
     -- Compound unique key for self-referential sub-activity project check
     CONSTRAINT uq_activities_project_id_id UNIQUE (project_id, id),
     -- Human-readable code unique within project; never recycled
     CONSTRAINT uq_activities_project_code UNIQUE (project_id, code),
-    
+
     -- Compound foreign key: Phase must belong to the exact same project
     CONSTRAINT fk_activities_phase_same_project
         FOREIGN KEY (project_id, phase_id)
         REFERENCES phases (project_id, id)
         ON DELETE RESTRICT
         ON UPDATE CASCADE,
-        
+
     -- Compound foreign key: Parent activity must belong to the exact same project
     CONSTRAINT fk_activities_parent_same_project
         FOREIGN KEY (project_id, parent_activity_id)
         REFERENCES activities (project_id, id)
         ON DELETE RESTRICT
         ON UPDATE CASCADE,
-        
+
     CONSTRAINT chk_activities_priority CHECK (priority IN ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL')),
     CONSTRAINT chk_activities_status CHECK (status IN ('DRAFT', 'READY_FOR_PLANNING', 'PLANNED', 'IN_PROGRESS', 'BLOCKED', 'DONE', 'CANCELLED')),
     CONSTRAINT chk_activities_estimates CHECK (
-        original_estimate_hours >= 0 AND 
-        current_estimate_hours >= 0 AND 
-        remaining_effort_hours >= 0 AND 
+        original_estimate_hours >= 0 AND
+        current_estimate_hours >= 0 AND
+        remaining_effort_hours >= 0 AND
         actual_effort_hours >= 0
     ),
     CONSTRAINT chk_activities_dates CHECK (due_date >= start_date)
@@ -394,7 +394,7 @@ RETURNS TRIGGER AS $$
 BEGIN
     IF NEW.parent_activity_id IS NOT NULL THEN
         IF EXISTS (
-            SELECT 1 FROM activities 
+            SELECT 1 FROM activities
             WHERE id = NEW.parent_activity_id AND parent_activity_id IS NOT NULL
         ) THEN
             RAISE EXCEPTION 'Sub-activity nesting depth cannot exceed 1 level (Activity -> Sub-activity)';
@@ -524,7 +524,9 @@ CREATE TABLE leave_records (
 
 ---
 
-### 3.5 Immutable Audit Log (CPD-009)
+### 3.5 Immutable Audit Log (Core Pilot; CPD-009 Thresholds Deferred)
+
+> **Note:** In Core Pilot, append-only audit logging is enforced for approved actions: CPD-007 terminal administrative overrides, CPD-004 capacity hard-block overrides, and CPD-006 leave workflow events. CPD-009 material-change threshold detection (date shifts, estimate changes, and ordinary-edit mandatory reasons) is deferred to Operational Hardening.
 
 ```sql
 CREATE TABLE audit_log (
@@ -554,10 +556,10 @@ Net capacity derives dynamically from `calendar_settings` and `calendar_working_
 
 ```sql
 WITH calendar_base AS (
-    SELECT 
+    SELECT
         cs.standard_hours_per_day,
         (
-            SELECT COUNT(*) 
+            SELECT COUNT(*)
             FROM generate_series($1::date, $2::date, '1 day'::interval) d
             JOIN calendar_working_days cwd ON cwd.iso_day_of_week = EXTRACT(ISODOW FROM d)
             WHERE cwd.is_working_day = TRUE
@@ -567,7 +569,7 @@ WITH calendar_base AS (
     LIMIT 1
 ),
 member_base AS (
-    SELECT 
+    SELECT
         m.id AS member_id,
         m.non_project_buffer_percent,
         cb.standard_hours_per_day,
@@ -577,7 +579,7 @@ member_base AS (
             SELECT SUM(cb.standard_hours_per_day)
             FROM generate_series($1::date, $2::date, '1 day'::interval) d
             JOIN calendar_working_days cwd ON cwd.iso_day_of_week = EXTRACT(ISODOW FROM d) AND cwd.is_working_day = TRUE
-            JOIN leave_records l ON l.member_id = m.id 
+            JOIN leave_records l ON l.member_id = m.id
               AND l.status = 'APPROVED'
               AND d::date BETWEEN l.start_date AND l.end_date
             WHERE d::date NOT IN (SELECT holiday_date FROM public_holidays)
@@ -587,25 +589,25 @@ member_base AS (
     WHERE m.id = $3
 ),
 member_capacity AS (
-    SELECT 
+    SELECT
         member_id,
-        GREATEST(0.0, 
+        GREATEST(0.0,
             ((valid_working_days_count * standard_hours_per_day) - approved_leave_hours)
             * (1.0 - (non_project_buffer_percent / 100.0))
         ) AS net_capacity_hours
     FROM member_base
 ),
 cross_project_load AS (
-    SELECT 
+    SELECT
         a.member_id,
         COALESCE(SUM(
             (a.planned_hours / NULLIF(
-                (SELECT COUNT(*) 
+                (SELECT COUNT(*)
                  FROM generate_series(a.start_date, a.end_date, '1 day'::interval) ad
                  JOIN calendar_working_days cwd ON cwd.iso_day_of_week = EXTRACT(ISODOW FROM ad)
                  WHERE cwd.is_working_day = TRUE), 0)
             ) * (
-                SELECT COUNT(*) 
+                SELECT COUNT(*)
                 FROM generate_series(GREATEST(a.start_date, $1::date), LEAST(a.end_date, $2::date), '1 day'::interval) owd
                 JOIN calendar_working_days cwd ON cwd.iso_day_of_week = EXTRACT(ISODOW FROM owd)
                 WHERE cwd.is_working_day = TRUE
@@ -618,15 +620,15 @@ cross_project_load AS (
       AND a.status = 'ACTIVE'
       AND act.status NOT IN ('CANCELLED', 'DONE')
       AND p.status NOT IN ('ARCHIVED', 'CANCELLED') -- Cross-project active check (CPD-005)
-      AND a.start_date <= $2::date 
+      AND a.start_date <= $2::date
       AND a.end_date >= $1::date
     GROUP BY a.member_id
 )
-SELECT 
+SELECT
     c.member_id,
     c.net_capacity_hours,
     COALESCE(l.total_assigned_hours, 0.0) AS total_assigned_hours,
-    CASE 
+    CASE
         WHEN c.net_capacity_hours = 0.0 AND COALESCE(l.total_assigned_hours, 0.0) > 0.0 THEN 999.99 -- Zero capacity hard conflict (CPD-004)
         WHEN c.net_capacity_hours = 0.0 THEN 0.0
         ELSE ROUND((COALESCE(l.total_assigned_hours, 0.0) / c.net_capacity_hours) * 100.0, 2)

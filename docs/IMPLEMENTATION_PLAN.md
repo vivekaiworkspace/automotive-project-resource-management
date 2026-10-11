@@ -1,9 +1,9 @@
 # Automotive Project & Resource Management System
 ## Engineering Implementation Plan — MVP Core Pilot
 
-**Document Version:** 1.0  
-**Status:** Approved Technical Design  
-**Authoritative Sources:** PRD.md v1.0, docs/MVP-SCOPE.md, docs/CORE-PILOT-DECISIONS.md, docs/ARCHITECTURE.md  
+**Document Version:** 1.0
+**Status:** Approved Technical Design
+**Authoritative Sources:** PRD.md v1.0, docs/MVP-SCOPE.md, docs/CORE-PILOT-DECISIONS.md, docs/ARCHITECTURE.md
 
 ---
 
@@ -27,7 +27,7 @@ graph TD
     P3 --> P4["Phase 4: Activities & Non-Linear Status Engine"]
     P4 --> P5["Phase 5: Assignment Engine & Cross-Project Capacity"]
     P5 --> P6["Phase 6: Leave Management & Privacy Serialization"]
-    P6 --> P7["Phase 7: Material Change Detection & Audit Logging"]
+    P6 --> P7["Phase 7: Immutable Audit Logging (Material Change Detection Deferred)"]
     P7 --> P8["Phase 8: UI Module Architecture & User Flows"]
     P8 --> P9["Phase 9: Backup Verification & Pilot Readiness Drill"]
 ```
@@ -110,18 +110,16 @@ graph TD
 
 ---
 
-### Phase 7: Material Change Detection & Immutable Audit Trail
-* **Objectives:** Ensure complete accountability and compliance logging.
-* **Deliverables:**
-  * Append-only `audit_log` repository with revoked `UPDATE`/`DELETE` permissions.
-  * Service-layer `AuditInterceptor` detecting material changes:
-    * Date change: shift of >= 3 working days from current start or due date.
-    * Estimate change: change of >= 20 percent of current estimate.
-    * Assignee change on a Planned or In Progress activity.
-    * Priority change on a Planned or In Progress activity.
-    * Completions, cancellations (terminal overrides), and hard capacity overrides (> 100%).
-  * Mandatory justification validator rejecting updates without a reason string >= 10 characters.
-* **Traceability:** CPD-009, BR-011, PRD Audit.
+### Phase 7: Material Change Detection & Immutable Audit Trail (Superseded for Core Pilot)
+* **Status:** Superseded for Core Pilot; Material-Change Threshold Detection Deferred to Operational Hardening (CPD-009).
+* **Governance Notice:** Per Product Owner decision on 2026-10-11, CPD-009 material-change threshold enforcement (shift of >= 3 working days, estimate change of >= 20 percent, ordinary-edit mandatory reason prompts, and configurable material-change threshold interceptors) is deferred to Operational Hardening and is excluded from Core Pilot scope.
+* **Core Pilot Audit Baseline:**
+  * Core Pilot retains append-only `audit_log` records and mandatory justifications for already-approved actions:
+    * CPD-007 terminal administrative overrides (entering `DONE` or `CANCELLED`, revoking `DONE → CANCELLED`, reopening `DONE` or `CANCELLED` with trimmed justification >= 10 chars).
+    * CPD-004 capacity hard-block overrides (100% utilization override with trimmed justification >= 10 chars).
+    * CPD-006 leave management workflow actions and privacy controls.
+  * Ordinary activity field updates (dates, estimates, assignees, priorities) are logged without triggering material-change prompts or blocking saves in Core Pilot.
+* **Traceability:** CPD-007, CPD-004, CPD-006, CPD-009 (Deferred).
 
 ---
 
@@ -164,6 +162,7 @@ The following items are preserved as **PENDING** and must be resolved before liv
 
 ## 4. Out of Scope / Deferred Items (MVP Operational Hardening)
 
+* **Material-Change Threshold Detection & Interceptors:** (CPD-009 deferred to Operational Hardening; date shifts >= 3 days, estimate changes >= 20%, and ordinary-edit reason prompts are excluded from Core Pilot).
 * **Finish-to-Start Active Dependency Engine:** (Deferred to Operational Hardening; schema reserved).
 * **Predecessor Cancellation Active Review Flag UI:** (Deferred to Operational Hardening).
 * **Corporate SSO / Active Directory Integration:** (Deferred to Release 2).

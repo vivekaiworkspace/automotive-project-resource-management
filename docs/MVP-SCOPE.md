@@ -1,9 +1,9 @@
 # MVP Scope
 ## Automotive Multi-Product Project & Resource Management System
 
-**Source document:** PRD.md v1.0  
-**Scope version:** 0.2 — Revised delivery tiers  
-**Prepared:** 2026-10-10  
+**Source document:** PRD.md v1.0
+**Scope version:** 0.2 — Revised delivery tiers
+**Prepared:** 2026-10-10
 **Status:** Proposal awaiting stakeholder approval — no items below are approved decisions
 
 > [!IMPORTANT]
@@ -163,7 +163,7 @@ The PRD defines seven acceptance scenarios. This revision resolves the contradic
 | Unique stable activity IDs (e.g., PRJ-1042), never reused after deletion | FR-ACT-016 | MVP Core Pilot |
 | Every activity belongs to exactly one project; optionally one phase and one parent activity | BR-002 | MVP Core Pilot |
 | Done/Cancelled activities consume no future capacity after effective date | BR-008 | MVP Core Pilot |
-| Material changes to dates, effort, and assignment require a recorded reason | BR-011 | MVP Core Pilot |
+| Material changes to dates, effort, and assignment require a recorded reason | BR-011 | MVP Operational Hardening (CPD-009) |
 | Project priority never silently rewrites assignments | BR-012 | MVP Core Pilot |
 | Archive/deactivate rather than physical deletion for master data with history | BR-013 | MVP Core Pilot |
 | All timestamps stored in UTC; displayed in user/organization time zone | BR-014 | MVP Core Pilot |
@@ -186,7 +186,7 @@ The PRD defines seven acceptance scenarios. This revision resolves the contradic
 **Assumptions requiring approval**
 - Estimate unit is hours for all capacity planning; story points may be stored as a secondary reference field but are not used in scheduling or workload calculations. (See REQUIREMENTS-DECISION-LOG.md §1.2)
 - Default sub-activity depth is one level (Activity → Sub-activity) for Core Pilot; Admin-configurable up to a system maximum in Hardening. (See REQUIREMENTS-DECISION-LOG.md §1.9)
-- Material-change thresholds (e.g., date shift > 3 working days, effort change > 20%) must be agreed with stakeholders before Core Pilot implementation begins. (See REQUIREMENTS-DECISION-LOG.md §1.6)
+- Material-change thresholds (e.g., date shift > 3 working days, effort change > 20%) are deferred to MVP Operational Hardening (CPD-009); Core Pilot does not enforce ordinary-edit material-change reason prompts. (See REQUIREMENTS-DECISION-LOG.md §1.6)
 - Actual effort tracking is optional per project in Core Pilot; remaining effort is sufficient as the primary progress signal. (See REQUIREMENTS-DECISION-LOG.md §1.3)
 
 ---
@@ -279,7 +279,7 @@ The Core Pilot requires the minimum views to prove the workflow. Sophisticated d
 
 | Item | PRD reference | Tier |
 |---|---|---|
-| Append-only audit entries: actor, timestamp, entity, before/after values, reason for material changes | Audit § | MVP Core Pilot |
+| Append-only audit entries: actor, timestamp, entity, before/after values (mandatory reason for capacity hard-block & terminal overrides; general material-change reasons deferred to Operational Hardening per CPD-009) | Audit § | MVP Core Pilot |
 | Audit entries cannot be edited through the UI | Audit § | MVP Core Pilot |
 | Optimistic concurrency: entity version or If-Match header prevents silent overwrite (supports Scenario 7) | API Requirements § | MVP Core Pilot |
 | Correlation ID for bulk operations and automated recalculations | Audit § | MVP Core Pilot |
@@ -348,7 +348,7 @@ The Core Pilot may not advance to MVP Operational Hardening until **all** of the
 | AG-2 | **Cross-project capacity enforcement** — a member already at 100% utilization in a given week (from assignments spread across two or more active pilot projects) cannot receive a further assignment in any pilot project without triggering a hard block or an authorized override with a recorded reason; the utilization figure shown to the planner must reflect the combined load from all active pilot projects, not just the current one | Hard-block fires correctly in 100% of test cases across at least two different source projects; override path records reason in audit log; utilization figure verified to include all pilot-project assignments |
 | AG-3 | **Leave → capacity chain** — approving a member's leave request reduces their net capacity for the affected days, flags all overlapping assignments with a warning, and generates an in-app notification to the relevant project manager and team lead | Verified for at least 3 distinct leave + assignment overlap scenarios using pilot data |
 | AG-4 | **Concurrent edit protection** — when two pilot users open and edit the same activity simultaneously, the second save receives a conflict prompt showing the changed field rather than silently overwriting the first edit | Reproducible in all test attempts; no silent overwrite observed |
-| AG-5 | **Audit trail** — every material change (date, effort, status, assignment) generates an append-only audit entry recording actor, timestamp, entity, before value, after value, and reason where required; entries cannot be deleted or edited through the UI | Spot-check of 20 audit entries across at least 4 entity types shows no gaps or editable entries |
+| AG-5 | **Audit trail** — every approved audit action (CPD-007 terminal status overrides, CPD-004 capacity hard-block overrides, leave workflow actions) generates an append-only audit entry recording actor, timestamp, entity, before value, after value, and justification where required; entries cannot be deleted or edited through the UI (ordinary-edit material-change threshold prompts deferred to Operational Hardening per CPD-009) | Spot-check of 20 audit entries across approved entity types shows no gaps or editable entries |
 | AG-6 | **Backup and restore** — a complete database backup is taken from the pilot server and successfully restored into a **separate test environment or designated recovery host** (not the same server); the application starts, all pilot data is accessible, and no data created before the backup point is missing | Restore test executed on a separate host or isolated test environment before pilot go-live; written record of test date, operator, row counts verified, and sign-off by IT or product owner; formal spare-host runbook, RTO 8-hour commitment, WAL archiving, and quarterly restore evidence with recorded results are required at MVP Operational Hardening |
 | AG-7 | **Scenario 5 prerequisite verified** — skill catalogue and member skill records are populated for all pilot members, confirming the data foundation for skill-aware assignment in Operational Hardening; Scenario 5 full test (eligible-member candidate list) is explicitly recorded as pending | Skills catalogue and member records present for ≥ 90% of pilot team members; Scenario 5 deferred status formally noted in the handoff document |
 
