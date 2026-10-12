@@ -1,7 +1,7 @@
 /**
  * Leave Management Board UI Controller (Phase 8 Slice 1)
  * Enforces server-authoritative privacy serialization (CPD-006)
- * and strict role-based approval action visibility.
+ * and strict action-authorization compliance.
  */
 
 (function (root, factory) {
@@ -15,12 +15,18 @@
 
   // Allowed leave types matching backend specification
   const VALID_LEAVE_TYPES = ['ANNUAL', 'SICK', 'PERSONAL', 'MATERNITY', 'OTHER'];
-  const APPROVER_ROLES = ['SYSTEM_ADMIN', 'RESOURCE_MANAGER', 'TEAM_LEAD'];
 
   let currentUser = null;
   let csrfToken = null;
   let cachedLeaveRecords = [];
   let currentActiveTab = 'tab-board';
+
+  // Duplicate request in-flight guards (F-04)
+  let isSubmittingLeave = false;
+  const cancellingLeaveIds = new Set();
+
+  // Testable custom API fetch injection
+  let customApiFetch = null;
 
   /**
    * Escape HTML entities to prevent XSS
@@ -61,14 +67,6 @@
   }
 
   /**
-   * Check if current user is authorized to perform approve/reject actions
-   */
-  function canUserApprove(user) {
-    if (!user || !Array.isArray(user.roles)) return false;
-    return user.roles.some(r => APPROVER_ROLES.includes(r));
-  }
-
-  /**
    * Display global alert notification banner
    */
   function showAlert(message, type = 'error') {
@@ -91,6 +89,10 @@
    * Standardized authenticated API fetch wrapper
    */
   async function apiFetch(url, options = {}) {
+    if (customApiFetch) {
+      return customApiFetch(url, options);
+    }
+
     const defaultHeaders = {
       'Accept': 'application/json',
     };
@@ -293,12 +295,24 @@
 
   /**
    * Render HTML for an Individual Leave Card
-   * PRIVACY RULE: Displays only fields present in server record.
-   * APPROVAL RULE: Approve/Reject controls only rendered if authorized.
+   *
+   * Action Authorization (F-01, F-03):
+   * - The existing API does not provide explicit per-record approve/reject grants.
+   *   Approve and reject controls remain absent.
+   * - Cancellation controls are shown ONLY for own eligible records (PENDING or APPROVED).
+   *   Other-member records never gain cancellation controls from role names.
+   *
+   * Privacy & Safe Rendering (F-02):
+   * - When leave_reason is absent/null, card reason content is completely omitted.
+   * - When leave_type is absent/null, a neutral em dash pill is rendered.
+   * - No fabricated policy text ("Not Disclosed", "Confidential / Masked").
    */
   function renderLeaveCardHtml(record, user) {
-    const isApprover = canUserApprove(user);
-    const isOwnRecord = user && record.user_id && user.id === record.user_id;
+    if (!record) return '';
+
+    const isOwnRecord = Boolean(user && user.id && record.user_id && user.id === record.user_id);
+    const isEligibleForCancel = record.status === 'PENDING' || record.status === 'APPROVED';
+    const canCancel = isOwnRecord && isEligibleForCancel;
 
     // Dates and Duration
     const startDate = record.start_date || record.unavailable_from || '—';
@@ -307,48 +321,30 @@
     const hours = record.duration_hours !== undefined && record.duration_hours !== null ? `${record.duration_hours}h` : '';
     const durationLabel = [days, hours].filter(Boolean).join(' / ') || '—';
 
-    // Leave Type (Server Privacy Serialization: null when masked for PM/peer)
+    // Leave Type (F-02: neutral rendering; omit invented policy text)
     let typeBadgeHtml = '';
     if (record.leave_type) {
       const typeLower = String(record.leave_type).toLowerCase();
       typeBadgeHtml = `<span class="leave-type-pill type-${escapeHtml(typeLower)}">${escapeHtml(record.leave_type)}</span>`;
     } else {
-      typeBadgeHtml = `<span class="leave-type-pill type-protected">Type: Not Disclosed</span>`;
+      typeBadgeHtml = `<span class="leave-type-pill type-neutral">—</span>`;
     }
 
-    // Leave Reason (Server Privacy Serialization: null when masked for TL/PM/peer)
+    // Leave Reason (F-02: omit reason box completely when absent/null)
     let reasonHtml = '';
     if (record.leave_reason) {
       reasonHtml = `<div class="leave-reason-box">${escapeHtml(record.leave_reason)}</div>`;
-    } else {
-      reasonHtml = `<div class="leave-reason-box reason-masked">Reason confidential / masked by policy</div>`;
     }
 
-    // Approver Info (Server Privacy Serialization: only present for Admin and in-scope RM)
+    // Approver Info (only present if returned by server)
     let approverHtml = '';
     if (record.approved_by_user_id) {
       approverHtml = `<div class="leave-approver-info"><span>Approver ID:</span> <span>${escapeHtml(record.approved_by_user_id)}</span></div>`;
     }
 
-    // Actions
+    // Actions (F-01: NO approve/reject; F-03: self-cancellation only)
     let actionsHtml = '';
-    const isPending = record.status === 'PENDING';
-    const isApproved = record.status === 'APPROVED';
-
-    // Show approve/reject ONLY when server profile indicates authorization
-    if (isApprover && isPending) {
-      actionsHtml += `
-        <button class="btn-action-approve" data-id="${escapeHtml(record.id)}" title="Approve leave request">
-          &#10003; Approve
-        </button>
-        <button class="btn-action-reject" data-id="${escapeHtml(record.id)}" title="Reject leave request">
-          &#10005; Reject
-        </button>
-      `;
-    }
-
-    // Cancellation: Requester (self) or Approver, if not already cancelled/rejected
-    if ((isOwnRecord || isApprover) && (isPending || isApproved)) {
+    if (canCancel) {
       actionsHtml += `
         <button class="btn-action-cancel-record" data-id="${escapeHtml(record.id)}" title="Cancel leave request">
           Cancel
@@ -386,37 +382,41 @@
 
   /**
    * Render Tabular Records List View
+   *
+   * Action Authorization (F-01, F-03):
+   * - No approve/reject controls.
+   * - Cancellation controls only for own eligible records (PENDING or APPROVED).
+   *
+   * Privacy & Safe Rendering (F-02):
+   * - Uses neutral em dash ('—') in table cells for missing/null fields.
    */
-  function renderListView(records) {
+  function renderListView(records, user = currentUser) {
     const tableBody = document.getElementById('leave-table-body');
     if (!tableBody) return;
 
     tableBody.innerHTML = '';
-    const isApprover = canUserApprove(currentUser);
 
     for (const record of records) {
-      const isOwnRecord = currentUser && record.user_id && currentUser.id === record.user_id;
+      const isOwnRecord = Boolean(user && user.id && record.user_id && user.id === record.user_id);
+      const isEligibleForCancel = record.status === 'PENDING' || record.status === 'APPROVED';
+      const canCancel = isOwnRecord && isEligibleForCancel;
+
       const startDate = record.start_date || record.unavailable_from || '—';
       const endDate = record.end_date || record.unavailable_to || '—';
       const days = record.duration_days !== undefined && record.duration_days !== null ? `${record.duration_days}d` : '—';
       const hours = record.duration_hours !== undefined && record.duration_hours !== null ? `${record.duration_hours}h` : '—';
 
-      const typeDisplay = record.leave_type ? escapeHtml(record.leave_type) : '<span style="color:var(--text-dim);font-style:italic;">Not Disclosed</span>';
-      const reasonDisplay = record.leave_reason ? escapeHtml(record.leave_reason) : '<span style="color:var(--text-dim);font-style:italic;">Confidential / Masked</span>';
+      // F-02: Neutral em dash for absent/null table cells
+      const typeDisplay = record.leave_type ? escapeHtml(record.leave_type) : '—';
+      const reasonDisplay = record.leave_reason ? escapeHtml(record.leave_reason) : '—';
       const approverDisplay = record.approved_by_user_id ? escapeHtml(record.approved_by_user_id) : '—';
 
       const statusClass = `status-${String(record.status).toLowerCase()}`;
 
       // Actions
       let actionsHtml = '';
-      if (isApprover && record.status === 'PENDING') {
-        actionsHtml += `
-          <button class="btn-action-approve" data-id="${escapeHtml(record.id)}" style="padding:2px 8px;font-size:0.7rem;">Approve</button>
-          <button class="btn-action-reject" data-id="${escapeHtml(record.id)}" style="padding:2px 8px;font-size:0.7rem;">Reject</button>
-        `;
-      }
-      if ((isOwnRecord || isApprover) && (record.status === 'PENDING' || record.status === 'APPROVED')) {
-        actionsHtml += `
+      if (canCancel) {
+        actionsHtml = `
           <button class="btn-action-cancel-record" data-id="${escapeHtml(record.id)}" style="padding:2px 6px;font-size:0.7rem;">Cancel</button>
         `;
       }
@@ -435,19 +435,21 @@
       `;
       tableBody.insertAdjacentHTML('beforeend', rowHtml);
     }
+
+    attachCardActionHandlers();
   }
 
   /**
    * Render "My Leaves" Filtered View
    */
-  function renderMyLeavesView(records) {
+  function renderMyLeavesView(records, user = currentUser) {
     const container = document.getElementById('my-leaves-container');
     if (!container) return;
 
     container.innerHTML = '';
-    if (!currentUser) return;
+    if (!user) return;
 
-    const myRecords = records.filter(r => r.user_id === currentUser.id);
+    const myRecords = records.filter(r => r.user_id === user.id);
 
     if (myRecords.length === 0) {
       container.innerHTML = `
@@ -464,82 +466,49 @@
     grid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(280px, 1fr))';
 
     for (const record of myRecords) {
-      const cardHtml = renderLeaveCardHtml(record, currentUser);
+      const cardHtml = renderLeaveCardHtml(record, user);
       grid.insertAdjacentHTML('beforeend', cardHtml);
     }
 
     container.appendChild(grid);
+    attachCardActionHandlers();
   }
 
   /**
-   * Attach Action Handlers (Approve, Reject, Cancel)
+   * Attach Action Handlers (Cancel)
    */
   function attachCardActionHandlers() {
-    document.querySelectorAll('.btn-action-approve').forEach(btn => {
-      btn.onclick = async (e) => {
-        const id = e.currentTarget.getAttribute('data-id');
-        if (id) await handleApproveLeave(id);
-      };
-    });
-
-    document.querySelectorAll('.btn-action-reject').forEach(btn => {
-      btn.onclick = (e) => {
-        const id = e.currentTarget.getAttribute('data-id');
-        if (id) openRejectionModal(id);
-      };
-    });
-
     document.querySelectorAll('.btn-action-cancel-record').forEach(btn => {
       btn.onclick = async (e) => {
         const id = e.currentTarget.getAttribute('data-id');
-        if (id) await handleCancelLeave(id);
+        if (id) await handleCancelLeave(id, e.currentTarget);
       };
     });
   }
 
   /**
-   * Approve Leave Request Action
+   * Cancel Leave Request Action (F-03, F-04: in-flight guard and disabling)
    */
-  async function handleApproveLeave(leaveId) {
+  async function handleCancelLeave(leaveId, triggerBtn = null) {
     if (!leaveId) return;
-    try {
-      await apiFetch(`/api/v1/leave/${leaveId}/approve`, {
-        method: 'POST',
-      });
-      showAlert('Leave request approved successfully. Capacity updated.', 'success');
-      await loadLeaveRecords();
-    } catch (err) {
-      showAlert(`Approval failed: ${formatSafeErrorMessage(err)}`, 'error');
+    if (cancellingLeaveIds.has(leaveId)) {
+      return; // Ignore repeated invocation while pending (F-04)
     }
-  }
 
-  /**
-   * Reject Leave Request Action
-   */
-  async function handleRejectLeave(leaveId, rejectionReason) {
-    if (!leaveId) return;
-    try {
-      await apiFetch(`/api/v1/leave/${leaveId}/reject`, {
-        method: 'POST',
-        body: {
-          rejection_reason: rejectionReason || undefined,
-        },
-      });
-      showAlert('Leave request rejected successfully.', 'success');
-      closeRejectionModal();
-      await loadLeaveRecords();
-    } catch (err) {
-      showAlert(`Rejection failed: ${formatSafeErrorMessage(err)}`, 'error');
-    }
-  }
-
-  /**
-   * Cancel Leave Request Action
-   */
-  async function handleCancelLeave(leaveId) {
-    if (!leaveId) return;
-    const confirmed = window.confirm('Are you sure you want to cancel this leave request?');
+    const confirmed = typeof window !== 'undefined' && window.confirm
+      ? window.confirm('Are you sure you want to cancel this leave request?')
+      : true;
     if (!confirmed) return;
+
+    cancellingLeaveIds.add(leaveId);
+    if (triggerBtn) {
+      triggerBtn.disabled = true;
+    }
+    if (typeof document !== 'undefined') {
+      document.querySelectorAll(`.btn-action-cancel-record[data-id="${leaveId}"]`).forEach(btn => {
+        btn.disabled = true;
+      });
+    }
 
     try {
       await apiFetch(`/api/v1/leave/${leaveId}/cancel`, {
@@ -549,14 +518,30 @@
       await loadLeaveRecords();
     } catch (err) {
       showAlert(`Cancellation failed: ${formatSafeErrorMessage(err)}`, 'error');
+    } finally {
+      cancellingLeaveIds.delete(leaveId);
+      if (triggerBtn) {
+        triggerBtn.disabled = false;
+      }
+      if (typeof document !== 'undefined') {
+        document.querySelectorAll(`.btn-action-cancel-record[data-id="${leaveId}"]`).forEach(btn => {
+          btn.disabled = false;
+        });
+      }
     }
   }
 
   /**
-   * Submit New Leave Request Form Handler
+   * Submit New Leave Request Form Handler (F-04: in-flight guard and disabling)
    */
   async function handleCreateLeave(event) {
-    event.preventDefault();
+    if (event && typeof event.preventDefault === 'function') {
+      event.preventDefault();
+    }
+
+    if (isSubmittingLeave) {
+      return; // Ignore repeated invocation while pending (F-04)
+    }
 
     const formErrorEl = document.getElementById('leave-form-error');
     if (formErrorEl) formErrorEl.style.display = 'none';
@@ -599,6 +584,14 @@
       payload.user_id = targetUserId;
     }
 
+    const submitBtn = document.getElementById('btn-submit-leave');
+    isSubmittingLeave = true;
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.dataset.originalText = submitBtn.textContent;
+      submitBtn.textContent = 'Submitting...';
+    }
+
     try {
       await apiFetch('/api/v1/leave', {
         method: 'POST',
@@ -611,6 +604,12 @@
       await loadLeaveRecords();
     } catch (err) {
       showFormError(formatSafeErrorMessage(err));
+    } finally {
+      isSubmittingLeave = false;
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = submitBtn.dataset.originalText || 'Submit Request';
+      }
     }
   }
 
@@ -680,8 +679,6 @@
   /**
    * Modal Management
    */
-  let pendingRejectionId = null;
-
   function openRequestModal() {
     const modal = document.getElementById('modal-leave-request');
     if (modal) modal.style.display = 'flex';
@@ -689,20 +686,6 @@
 
   function closeRequestModal() {
     const modal = document.getElementById('modal-leave-request');
-    if (modal) modal.style.display = 'none';
-  }
-
-  function openRejectionModal(leaveId) {
-    pendingRejectionId = leaveId;
-    const modal = document.getElementById('modal-rejection-reason');
-    const input = document.getElementById('input-rejection-reason');
-    if (input) input.value = '';
-    if (modal) modal.style.display = 'flex';
-  }
-
-  function closeRejectionModal() {
-    pendingRejectionId = null;
-    const modal = document.getElementById('modal-rejection-reason');
     if (modal) modal.style.display = 'none';
   }
 
@@ -753,22 +736,6 @@
     const btnCancelModal = document.getElementById('btn-cancel-request-modal');
     if (btnCancelModal) btnCancelModal.addEventListener('click', closeRequestModal);
 
-    // Rejection Modal Triggers
-    const btnCloseRejection = document.getElementById('btn-close-rejection-modal');
-    if (btnCloseRejection) btnCloseRejection.addEventListener('click', closeRejectionModal);
-
-    const btnCancelRejection = document.getElementById('btn-cancel-rejection-modal');
-    if (btnCancelRejection) btnCancelRejection.addEventListener('click', closeRejectionModal);
-
-    const btnConfirmRejection = document.getElementById('btn-confirm-rejection');
-    if (btnConfirmRejection) {
-      btnConfirmRejection.addEventListener('click', async () => {
-        if (!pendingRejectionId) return;
-        const reason = document.getElementById('input-rejection-reason')?.value?.trim();
-        await handleRejectLeave(pendingRejectionId, reason);
-      });
-    }
-
     // Form Submit
     const formRequest = document.getElementById('form-leave-request');
     if (formRequest) formRequest.addEventListener('submit', handleCreateLeave);
@@ -803,10 +770,19 @@
   // Return API object for programmatic testing
   return {
     VALID_LEAVE_TYPES,
-    APPROVER_ROLES,
-    canUserApprove,
     formatSafeErrorMessage,
     escapeHtml,
     renderLeaveCardHtml,
+    renderListView,
+    renderMyLeavesView,
+    handleCreateLeave,
+    handleCancelLeave,
+    setApiFetch: (fn) => { customApiFetch = fn; },
+    resetApiFetch: () => { customApiFetch = null; },
+    setCurrentUser: (u) => { currentUser = u; },
+    getCurrentUser: () => currentUser,
+    isSubmitting: () => isSubmittingLeave,
+    isCancelling: (id) => cancellingLeaveIds.has(id),
+    canUserApprove: () => false,
   };
 });

@@ -1,4 +1,4 @@
-import { test, describe } from 'node:test';
+import { test, describe, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -13,7 +13,7 @@ const frontendPublic = path.join(projectRoot, 'frontend', 'public');
 // Import LeaveBoard controller module
 import LeaveBoard from '../public/js/leave.js';
 
-describe('Leave Management Board UI Tests (Phase 8 Slice 1)', () => {
+describe('Leave Management Board UI Tests (Phase 8 Slice 1 Corrections)', () => {
 
   describe('1. Static Markup & Asset Availability', () => {
     const leaveHtmlPath = path.join(frontendPublic, 'leave.html');
@@ -62,13 +62,18 @@ describe('Leave Management Board UI Tests (Phase 8 Slice 1)', () => {
       }
     });
 
-    test('leave.html defines loading, empty, success, and safe error UI states', () => {
+    test('leave.html defines loading, empty, and safe error UI states', () => {
       const html = fs.readFileSync(leaveHtmlPath, 'utf8');
 
       assert.ok(html.includes('id="leave-loading-state"'), 'Must include loading state container');
       assert.ok(html.includes('id="leave-empty-state"'), 'Must include empty state container');
       assert.ok(html.includes('id="leave-error-state"'), 'Must include error state container');
       assert.ok(html.includes('id="alert-banner"'), 'Must include notification banner');
+    });
+
+    test('leave.html does not contain obsolete rejection modal markup', () => {
+      const html = fs.readFileSync(leaveHtmlPath, 'utf8');
+      assert.equal(html.includes('id="modal-rejection-reason"'), false, 'Rejection modal must be removed');
     });
 
     test('leave.css exists and provides responsive board layout and badge styling', () => {
@@ -90,7 +95,6 @@ describe('Leave Management Board UI Tests (Phase 8 Slice 1)', () => {
       const leaveHtml = fs.readFileSync(path.join(frontendPublic, 'leave.html'), 'utf8');
       const leaveJs = fs.readFileSync(path.join(frontendPublic, 'js', 'leave.js'), 'utf8');
 
-      // List of prohibited sensitive terms in static templates or fixtures
       const prohibitedTerms = [
         'chemotherapy',
         'surgery',
@@ -128,150 +132,176 @@ describe('Leave Management Board UI Tests (Phase 8 Slice 1)', () => {
     });
   });
 
-  describe('3. Authorization Rule & Action Control Visibility', () => {
-    const pendingLeave = {
-      id: 'leave-uuid-001',
-      user_id: 'user-uuid-100',
+  describe('3. F-01: Action Authorization — Absence of Inferred Approve/Reject Controls', () => {
+    const pendingRecord = {
+      id: 'leave-rec-001',
+      user_id: 'member-uuid-101',
       start_date: '2026-11-16',
       end_date: '2026-11-20',
       duration_days: 5,
       duration_hours: 40,
       leave_type: 'ANNUAL',
-      leave_reason: 'Annual vacation',
+      leave_reason: 'Vacation',
       status: 'PENDING',
       version: 1,
     };
 
-    const approvedLeave = {
-      ...pendingLeave,
-      id: 'leave-uuid-002',
-      status: 'APPROVED',
-      approved_by_user_id: 'admin-uuid-001',
-    };
+    const pilotRoles = [
+      'SYSTEM_ADMIN',
+      'RESOURCE_MANAGER',
+      'TEAM_LEAD',
+      'PROJECT_MANAGER',
+      'TEAM_MEMBER',
+    ];
 
-    const rejectedLeave = {
-      ...pendingLeave,
-      id: 'leave-uuid-003',
-      status: 'REJECTED',
-    };
+    for (const role of pilotRoles) {
+      test(`Approve and reject controls are completely ABSENT for role ${role} when explicit action authorization is absent`, () => {
+        const testUser = { id: 'viewer-uuid-999', roles: [role] };
 
-    test('canUserApprove returns true only for SYSTEM_ADMIN, RESOURCE_MANAGER, and TEAM_LEAD', () => {
-      assert.equal(LeaveBoard.canUserApprove({ roles: ['SYSTEM_ADMIN'] }), true);
-      assert.equal(LeaveBoard.canUserApprove({ roles: ['RESOURCE_MANAGER'] }), true);
-      assert.equal(LeaveBoard.canUserApprove({ roles: ['TEAM_LEAD'] }), true);
-      assert.equal(LeaveBoard.canUserApprove({ roles: ['PROJECT_MANAGER', 'TEAM_LEAD'] }), true);
+        // Test card rendering
+        const cardHtml = LeaveBoard.renderLeaveCardHtml(pendingRecord, testUser);
+        assert.equal(cardHtml.includes('btn-action-approve'), false, `Card must not render approve button for ${role}`);
+        assert.equal(cardHtml.includes('btn-action-reject'), false, `Card must not render reject button for ${role}`);
+        assert.equal(cardHtml.includes('Approve'), false, `Card must not render Approve text for ${role}`);
+        assert.equal(cardHtml.includes('Reject'), false, `Card must not render Reject text for ${role}`);
 
-      assert.equal(LeaveBoard.canUserApprove({ roles: ['TEAM_MEMBER'] }), false);
-      assert.equal(LeaveBoard.canUserApprove({ roles: ['PROJECT_MANAGER'] }), false);
-      assert.equal(LeaveBoard.canUserApprove({ roles: [] }), false);
-      assert.equal(LeaveBoard.canUserApprove(null), false);
-      assert.equal(LeaveBoard.canUserApprove(undefined), false);
-    });
+        // Test list rendering DOM insertion
+        const mockTableBody = {
+          innerHTML: '',
+          insertAdjacentHTML: (pos, html) => { mockTableBody.innerHTML += html; }
+        };
+        const prevGlobalDoc = globalThis.document;
+        globalThis.document = {
+          getElementById: (id) => id === 'leave-table-body' ? mockTableBody : null,
+          querySelectorAll: () => []
+        };
+        try {
+          LeaveBoard.renderListView([pendingRecord], testUser);
+          assert.equal(mockTableBody.innerHTML.includes('btn-action-approve'), false, `List must not render approve button for ${role}`);
+          assert.equal(mockTableBody.innerHTML.includes('btn-action-reject'), false, `List must not render reject button for ${role}`);
+        } finally {
+          globalThis.document = prevGlobalDoc;
+        }
+      });
+    }
 
-    test('Unauthorized user (TEAM_MEMBER) receives NO approve or reject buttons on pending records', () => {
-      const teamMemberUser = { id: 'user-uuid-100', roles: ['TEAM_MEMBER'] };
-      const cardHtml = LeaveBoard.renderLeaveCardHtml(pendingLeave, teamMemberUser);
-
-      assert.equal(cardHtml.includes('btn-action-approve'), false, 'Approve button must be absent for Team Member');
-      assert.equal(cardHtml.includes('btn-action-reject'), false, 'Reject button must be absent for Team Member');
-      // Requester may cancel their own pending leave
-      assert.ok(cardHtml.includes('btn-action-cancel-record'), 'Cancel button should be available for own pending record');
-    });
-
-    test('Unauthorized user (PROJECT_MANAGER) receives NO approve or reject buttons', () => {
-      const pmUser = { id: 'pm-uuid-001', roles: ['PROJECT_MANAGER'] };
-      const cardHtml = LeaveBoard.renderLeaveCardHtml(pendingLeave, pmUser);
-
-      assert.equal(cardHtml.includes('btn-action-approve'), false, 'Approve button must be absent for PM');
-      assert.equal(cardHtml.includes('btn-action-reject'), false, 'Reject button must be absent for PM');
-      assert.equal(cardHtml.includes('btn-action-cancel-record'), false, 'Cancel button absent for non-approver non-owner');
-    });
-
-    test('Authorized approver (TEAM_LEAD) receives approve and reject controls on PENDING records', () => {
-      const leadUser = { id: 'lead-uuid-001', roles: ['TEAM_LEAD'] };
-      const cardHtml = LeaveBoard.renderLeaveCardHtml(pendingLeave, leadUser);
-
-      assert.ok(cardHtml.includes('btn-action-approve'), 'Approve button must be present for Team Lead');
-      assert.ok(cardHtml.includes('btn-action-reject'), 'Reject button must be present for Team Lead');
-      assert.ok(cardHtml.includes('btn-action-cancel-record'), 'Cancel button must be present for Team Lead');
-    });
-
-    test('Authorized approver (SYSTEM_ADMIN) receives approve and reject controls on PENDING records', () => {
-      const adminUser = { id: 'admin-uuid-001', roles: ['SYSTEM_ADMIN'] };
-      const cardHtml = LeaveBoard.renderLeaveCardHtml(pendingLeave, adminUser);
-
-      assert.ok(cardHtml.includes('btn-action-approve'), 'Approve button must be present for Admin');
-      assert.ok(cardHtml.includes('btn-action-reject'), 'Reject button must be present for Admin');
-    });
-
-    test('Non-pending records (APPROVED, REJECTED) do NOT display approve/reject controls even for Admins', () => {
+    test('Non-pending records (APPROVED, REJECTED, CANCELLED) also render NO approve or reject buttons', () => {
       const adminUser = { id: 'admin-uuid-001', roles: ['SYSTEM_ADMIN'] };
 
-      const approvedHtml = LeaveBoard.renderLeaveCardHtml(approvedLeave, adminUser);
-      assert.equal(approvedHtml.includes('btn-action-approve'), false, 'Approve button must be absent on APPROVED leave');
-      assert.equal(approvedHtml.includes('btn-action-reject'), false, 'Reject button must be absent on APPROVED leave');
-
-      const rejectedHtml = LeaveBoard.renderLeaveCardHtml(rejectedLeave, adminUser);
-      assert.equal(rejectedHtml.includes('btn-action-approve'), false, 'Approve button must be absent on REJECTED leave');
-      assert.equal(rejectedHtml.includes('btn-action-reject'), false, 'Reject button must be absent on REJECTED leave');
+      for (const st of ['APPROVED', 'REJECTED', 'CANCELLED']) {
+        const record = { ...pendingRecord, id: `leave-${st}`, status: st };
+        const cardHtml = LeaveBoard.renderLeaveCardHtml(record, adminUser);
+        assert.equal(cardHtml.includes('btn-action-approve'), false, `Must not render approve button on ${st}`);
+        assert.equal(cardHtml.includes('btn-action-reject'), false, `Must not render reject button on ${st}`);
+      }
     });
   });
 
-  describe('4. Server-Authoritative Privacy Rendering Behavior', () => {
-    test('Server-masked record (PM/peer view: type and reason null) renders clean masked indicators', () => {
-      const pmUser = { id: 'pm-uuid-001', roles: ['PROJECT_MANAGER'] };
+  describe('4. F-02: Safe & Neutral Rendering of Missing / Null Details', () => {
+    test('Card reason container is completely OMITTED when leave_reason is null or omitted', () => {
+      const user = { id: 'user-uuid-100', roles: ['TEAM_MEMBER'] };
+
+      const nullReasonRecord = {
+        id: 'leave-null-reason',
+        user_id: 'user-uuid-100',
+        start_date: '2026-11-16',
+        end_date: '2026-11-20',
+        leave_type: 'ANNUAL',
+        leave_reason: null, // explicit null
+        status: 'APPROVED',
+      };
+
+      const omittedReasonRecord = {
+        id: 'leave-omitted-reason',
+        user_id: 'user-uuid-100',
+        start_date: '2026-11-16',
+        end_date: '2026-11-20',
+        leave_type: 'ANNUAL',
+        status: 'APPROVED', // leave_reason omitted
+      };
+
+      const htmlNull = LeaveBoard.renderLeaveCardHtml(nullReasonRecord, user);
+      assert.equal(htmlNull.includes('leave-reason-box'), false, 'leave-reason-box must be omitted when null');
+      assert.equal(htmlNull.includes('Reason confidential / masked by policy'), false, 'Must not invent policy explanation');
+      assert.equal(htmlNull.includes('Confidential / Masked'), false, 'Must not invent confidential text');
+
+      const htmlOmitted = LeaveBoard.renderLeaveCardHtml(omittedReasonRecord, user);
+      assert.equal(htmlOmitted.includes('leave-reason-box'), false, 'leave-reason-box must be omitted when omitted');
+      assert.equal(htmlOmitted.includes('Reason confidential / masked by policy'), false, 'Must not invent policy explanation');
+    });
+
+    test('Card leave_type renders neutral em dash pill when absent or null, without invented text', () => {
+      const user = { id: 'user-uuid-100', roles: ['PROJECT_MANAGER'] };
+
+      const nullTypeRecord = {
+        id: 'leave-null-type',
+        user_id: 'user-uuid-200',
+        start_date: '2026-11-16',
+        end_date: '2026-11-20',
+        leave_type: null,
+        status: 'PENDING',
+      };
+
+      const cardHtml = LeaveBoard.renderLeaveCardHtml(nullTypeRecord, user);
+      assert.ok(cardHtml.includes('—'), 'Must render neutral em dash for absent leave_type');
+      assert.equal(cardHtml.includes('Not Disclosed'), false, 'Must not invent "Not Disclosed" label');
+      assert.equal(cardHtml.includes('type-protected'), false, 'Must not invent protected classification');
+    });
+
+    test('Table list view renders neutral em dash (—) for null leave_type and null leave_reason', () => {
+      const user = { id: 'user-uuid-100', roles: ['TEAM_MEMBER'] };
       const maskedRecord = {
-        id: 'leave-uuid-004',
-        user_id: 'user-uuid-100',
+        id: 'leave-tbl-masked',
+        user_id: 'user-uuid-200',
         start_date: '2026-11-16',
         end_date: '2026-11-20',
         duration_days: 5,
         duration_hours: 40,
-        leave_type: null,    // Server serialized as null
-        leave_reason: null,  // Server serialized as null
+        leave_type: null,
+        leave_reason: null,
+        approved_by_user_id: null,
         status: 'APPROVED',
       };
 
-      const cardHtml = LeaveBoard.renderLeaveCardHtml(maskedRecord, pmUser);
-
-      assert.ok(cardHtml.includes('Type: Not Disclosed'), 'Must render neutral not disclosed type badge');
-      assert.ok(cardHtml.includes('Reason confidential / masked by policy'), 'Must render neutral masked reason text');
-      assert.equal(cardHtml.includes('leave-approver-info'), false, 'Approver info must not be rendered when null');
+      const mockTableBody = {
+        innerHTML: '',
+        insertAdjacentHTML: (pos, html) => { mockTableBody.innerHTML += html; }
+      };
+      const prevGlobalDoc = globalThis.document;
+      globalThis.document = {
+        getElementById: (id) => id === 'leave-table-body' ? mockTableBody : null,
+        querySelectorAll: () => []
+      };
+      try {
+        LeaveBoard.renderListView([maskedRecord], user);
+        assert.ok(mockTableBody.innerHTML.includes('<td>—</td>'), 'Fixed table cells must display neutral em dash');
+        assert.equal(mockTableBody.innerHTML.includes('Not Disclosed'), false, 'Must not contain "Not Disclosed"');
+        assert.equal(mockTableBody.innerHTML.includes('Confidential / Masked'), false, 'Must not contain "Confidential / Masked"');
+      } finally {
+        globalThis.document = prevGlobalDoc;
+      }
     });
 
-    test('Server-authorized record (Full: type, reason, approver present) displays server values faithfully', () => {
-      const adminUser = { id: 'admin-uuid-001', roles: ['SYSTEM_ADMIN'] };
-      const fullRecord = {
-        id: 'leave-uuid-005',
-        user_id: 'user-uuid-100',
+    test('Actual server-provided text is safely escaped without script injection', () => {
+      const maliciousRecord = {
+        id: 'leave-malicious',
+        user_id: '<script>alert("xss")</script>',
         start_date: '2026-11-16',
         end_date: '2026-11-20',
         duration_days: 5,
         duration_hours: 40,
-        leave_type: 'SICK',
-        leave_reason: 'Post-op recovery period',
-        approved_by_user_id: 'admin-uuid-001',
+        leave_type: 'ANNUAL',
+        leave_reason: '<img src=x onerror=alert(1)> & "Family Holiday"',
         status: 'APPROVED',
       };
 
-      const cardHtml = LeaveBoard.renderLeaveCardHtml(fullRecord, adminUser);
+      const user = { id: 'user-uuid-100', roles: ['SYSTEM_ADMIN'] };
+      const cardHtml = LeaveBoard.renderLeaveCardHtml(maliciousRecord, user);
 
-      assert.ok(cardHtml.includes('SICK'), 'Must display server-provided leave type');
-      assert.ok(cardHtml.includes('Post-op recovery period'), 'Must display server-provided leave reason');
-      assert.ok(cardHtml.includes('admin-uuid-001'), 'Must display server-provided approver ID');
-    });
-  });
-
-  describe('5. Safe User-Facing Error State Formatting', () => {
-    test('formatSafeErrorMessage preserves clean business error messages', () => {
-      const msg1 = 'Both start date and end date are required.';
-      assert.equal(LeaveBoard.formatSafeErrorMessage(msg1), msg1);
-
-      const msg2 = 'End date cannot be earlier than start date.';
-      assert.equal(LeaveBoard.formatSafeErrorMessage(msg2), msg2);
-
-      const errObj = new Error('You are not authorized to submit leave requests for other users.');
-      assert.equal(LeaveBoard.formatSafeErrorMessage(errObj), errObj.message);
+      assert.equal(cardHtml.includes('<script>'), false, 'Must not inject unescaped script tag');
+      assert.ok(cardHtml.includes('&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;'), 'Must safely escape user_id');
+      assert.equal(cardHtml.includes('<img src=x'), false, 'Must not inject unescaped img tag');
+      assert.ok(cardHtml.includes('&lt;img src=x onerror=alert(1)&gt; &amp; &quot;Family Holiday&quot;'), 'Must safely escape leave_reason');
     });
 
     test('formatSafeErrorMessage redacts internal connection errors and stack traces', () => {
@@ -285,10 +315,229 @@ describe('Leave Management Board UI Tests (Phase 8 Slice 1)', () => {
       const formattedSql = LeaveBoard.formatSafeErrorMessage(sqlErr);
       assert.equal(formattedSql.includes('relation'), false);
       assert.ok(formattedSql.includes('temporarily unavailable'));
+
+      const cleanErr = 'Both start date and end date are required.';
+      assert.equal(LeaveBoard.formatSafeErrorMessage(cleanErr), cleanErr);
     });
   });
 
-  describe('6. Navigation Link Integration Across Existing UI Pages', () => {
+  describe('5. F-03: Cancellation Scope — Strict Ownership Rules', () => {
+    const ownPendingRecord = {
+      id: 'leave-own-pending',
+      user_id: 'current-user-123',
+      start_date: '2026-11-16',
+      end_date: '2026-11-20',
+      status: 'PENDING',
+    };
+
+    const ownApprovedRecord = {
+      ...ownPendingRecord,
+      id: 'leave-own-approved',
+      status: 'APPROVED',
+    };
+
+    const otherMemberPendingRecord = {
+      id: 'leave-other-pending',
+      user_id: 'other-user-456',
+      start_date: '2026-11-16',
+      end_date: '2026-11-20',
+      status: 'PENDING',
+    };
+
+    test('Own eligible records (PENDING, APPROVED) retain cancellation controls', () => {
+      const currentUser = { id: 'current-user-123', roles: ['TEAM_MEMBER'] };
+
+      const pendingHtml = LeaveBoard.renderLeaveCardHtml(ownPendingRecord, currentUser);
+      assert.ok(pendingHtml.includes('btn-action-cancel-record'), 'Self-cancellation must be present on own PENDING record');
+
+      const approvedHtml = LeaveBoard.renderLeaveCardHtml(ownApprovedRecord, currentUser);
+      assert.ok(approvedHtml.includes('btn-action-cancel-record'), 'Self-cancellation must be present on own APPROVED record');
+    });
+
+    test('Ineligible statuses (REJECTED, CANCELLED) do NOT show cancellation controls, even for owner', () => {
+      const currentUser = { id: 'current-user-123', roles: ['TEAM_MEMBER'] };
+
+      const rejectedRecord = { ...ownPendingRecord, id: 'leave-own-rejected', status: 'REJECTED' };
+      const rejectedHtml = LeaveBoard.renderLeaveCardHtml(rejectedRecord, currentUser);
+      assert.equal(rejectedHtml.includes('btn-action-cancel-record'), false, 'Cannot cancel REJECTED leave');
+
+      const cancelledRecord = { ...ownPendingRecord, id: 'leave-own-cancelled', status: 'CANCELLED' };
+      const cancelledHtml = LeaveBoard.renderLeaveCardHtml(cancelledRecord, currentUser);
+      assert.equal(cancelledHtml.includes('btn-action-cancel-record'), false, 'Cannot cancel already CANCELLED leave');
+    });
+
+    test('Other-member records NEVER gain cancellation controls from approver role names', () => {
+      const approverRoles = ['SYSTEM_ADMIN', 'RESOURCE_MANAGER', 'TEAM_LEAD', 'PROJECT_MANAGER'];
+
+      for (const role of approverRoles) {
+        const viewer = { id: 'current-user-123', roles: [role] };
+        const cardHtml = LeaveBoard.renderLeaveCardHtml(otherMemberPendingRecord, viewer);
+        assert.equal(
+          cardHtml.includes('btn-action-cancel-record'),
+          false,
+          `Other-member record must NOT display cancel button for ${role}`
+        );
+      }
+    });
+
+    test('Record with missing user_id does not display cancellation controls', () => {
+      const currentUser = { id: 'current-user-123', roles: ['TEAM_MEMBER'] };
+      const noUserRecord = {
+        id: 'leave-no-user',
+        user_id: null,
+        status: 'PENDING',
+      };
+
+      const cardHtml = LeaveBoard.renderLeaveCardHtml(noUserRecord, currentUser);
+      assert.equal(cardHtml.includes('btn-action-cancel-record'), false, 'Unidentifiable owner record must omit cancel control');
+    });
+  });
+
+  describe('6. F-04: Duplicate Request In-Flight Protection', () => {
+    let mockElements = {};
+    let prevGlobalDoc;
+
+    beforeEach(() => {
+      mockElements = {
+        'btn-submit-leave': { disabled: false, textContent: 'Submit Request', dataset: {} },
+        'leave-form-error': { style: { display: 'none' }, textContent: '' },
+        'input-start-date': { value: '2026-11-16' },
+        'input-end-date': { value: '2026-11-20' },
+        'input-leave-type': { value: 'ANNUAL' },
+        'input-leave-reason': { value: 'Vacation' },
+        'input-target-user-id': { value: '' },
+        'modal-leave-request': { style: { display: 'flex' } },
+        'alert-banner': { style: { display: 'none' }, className: '' },
+        'alert-message': { textContent: '' },
+        'form-leave-request': { reset: () => {} },
+      };
+
+      prevGlobalDoc = globalThis.document;
+      globalThis.document = {
+        getElementById: (id) => mockElements[id] || null,
+        querySelectorAll: () => [],
+      };
+    });
+
+    afterEach(() => {
+      globalThis.document = prevGlobalDoc;
+      LeaveBoard.resetApiFetch();
+    });
+
+    test('Repeated submission while pending produces exactly ONE apiFetch POST, disabling initiating control', async () => {
+      let postCallCount = 0;
+      let resolvePromise;
+      const deferredPromise = new Promise((resolve) => {
+        resolvePromise = resolve;
+      });
+
+      LeaveBoard.setApiFetch(async (url, options = {}) => {
+        if (options && (options.method || 'GET').toUpperCase() === 'POST') {
+          postCallCount++;
+          await deferredPromise;
+          return { data: { id: 'new-leave-id', status: 'PENDING' } };
+        }
+        return { data: [] }; // GET from loadLeaveRecords()
+      });
+
+      // Initiate first submission
+      const promise1 = LeaveBoard.handleCreateLeave({ preventDefault: () => {} });
+
+      // In-flight guard should now be active
+      assert.equal(LeaveBoard.isSubmitting(), true, 'In-flight guard must be true');
+      assert.equal(mockElements['btn-submit-leave'].disabled, true, 'Submit button must be disabled');
+
+      // Attempt repeated submission while first is still pending
+      const promise2 = LeaveBoard.handleCreateLeave({ preventDefault: () => {} });
+
+      // Call count must remain 1
+      assert.equal(postCallCount, 1, 'Duplicate submission must be ignored while in-flight');
+
+      // Resolve the deferred request
+      resolvePromise();
+      await Promise.all([promise1, promise2]);
+
+      // Guard cleared and button re-enabled
+      assert.equal(LeaveBoard.isSubmitting(), false, 'In-flight guard must be cleared in finally');
+      assert.equal(mockElements['btn-submit-leave'].disabled, false, 'Submit button must be restored');
+      assert.equal(postCallCount, 1, 'Total POST requests must be exactly 1');
+    });
+
+    test('Submission failure clears in-flight guard and restores initiating control to permit retry', async () => {
+      let postCallCount = 0;
+
+      // First attempt fails with network error
+      LeaveBoard.setApiFetch(async (url, options = {}) => {
+        if (options && (options.method || 'GET').toUpperCase() === 'POST') {
+          postCallCount++;
+          throw new Error('Network error during submission');
+        }
+        return { data: [] };
+      });
+
+      await LeaveBoard.handleCreateLeave({ preventDefault: () => {} });
+
+      assert.equal(postCallCount, 1);
+      assert.equal(LeaveBoard.isSubmitting(), false, 'Guard must be cleared even on failure');
+      assert.equal(mockElements['btn-submit-leave'].disabled, false, 'Button must be re-enabled after failure');
+      assert.equal(mockElements['leave-form-error'].style.display, 'block', 'Error must be displayed');
+
+      // Second attempt succeeds
+      LeaveBoard.setApiFetch(async (url, options = {}) => {
+        if (options && (options.method || 'GET').toUpperCase() === 'POST') {
+          postCallCount++;
+          return { data: { id: 'retry-leave-id', status: 'PENDING' } };
+        }
+        return { data: [] };
+      });
+
+      await LeaveBoard.handleCreateLeave({ preventDefault: () => {} });
+
+      assert.equal(postCallCount, 2, 'Retry must be permitted after failure, producing second POST');
+      assert.equal(LeaveBoard.isSubmitting(), false, 'Guard must remain cleared');
+      assert.equal(mockElements['btn-submit-leave'].disabled, false, 'Button restored');
+    });
+
+    test('Cancellation in-flight guard prevents duplicate cancellation requests', async () => {
+      let cancelCallCount = 0;
+      let resolvePromise;
+      const deferredPromise = new Promise((resolve) => {
+        resolvePromise = resolve;
+      });
+
+      LeaveBoard.setApiFetch(async (url) => {
+        if (url.includes('/cancel')) {
+          cancelCallCount++;
+          await deferredPromise;
+          return { data: { id: 'cancel-123', status: 'CANCELLED' } };
+        }
+        return { data: [] };
+      });
+
+      const mockBtn = { disabled: false };
+
+      // Initiate first cancel
+      const p1 = LeaveBoard.handleCancelLeave('leave-cancel-999', mockBtn);
+
+      assert.equal(LeaveBoard.isCancelling('leave-cancel-999'), true, 'Cancelling guard must be set');
+      assert.equal(mockBtn.disabled, true, 'Trigger button must be disabled');
+
+      // Duplicate cancel invocation for same leave ID
+      const p2 = LeaveBoard.handleCancelLeave('leave-cancel-999', mockBtn);
+
+      assert.equal(cancelCallCount, 1, 'Duplicate cancel must not trigger additional POST');
+
+      // Resolve deferred cancel request
+      resolvePromise();
+      await Promise.all([p1, p2]);
+
+      assert.equal(LeaveBoard.isCancelling('leave-cancel-999'), false, 'Cancelling guard must be cleared');
+      assert.equal(mockBtn.disabled, false, 'Trigger button must be re-enabled');
+      assert.equal(cancelCallCount, 1);
+    });
+  });
+
+  describe('7. Navigation Link Integration Across Existing UI Pages', () => {
     test('index.html contains Leave Board navigation link', () => {
       const html = fs.readFileSync(path.join(frontendPublic, 'index.html'), 'utf8');
       assert.ok(html.includes('href="/leave.html"'), 'index.html must link to /leave.html');
@@ -307,4 +556,5 @@ describe('Leave Management Board UI Tests (Phase 8 Slice 1)', () => {
       assert.ok(html.includes('Leave Board'), 'admin.html must have Leave Board link text');
     });
   });
+
 });
