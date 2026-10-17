@@ -16,6 +16,9 @@ import {
   getWorkingDaysInRange,
   getWeeklyBreakdown,
   calculateWorkingDaysDifference,
+  parseCleanDate,
+  countValidWorkingDays,
+  isWorkingDay,
 } from './calendar.service.js';
 import { findNearestCommittedMilestone } from './milestone.service.js';
 
@@ -197,8 +200,9 @@ async function generateCaseCode(client = null) {
 /**
  * Fetch member metadata (buffer percent, team, etc.)
  */
-export async function getMemberInfo(userId) {
-  const sql = `
+export async function getMemberInfo(userId, client = null) {
+  const runner = client || { query };
+  let sql = `
     SELECT 
       m.id AS member_id,
       m.user_id,
@@ -210,7 +214,23 @@ export async function getMemberInfo(userId) {
     LEFT JOIN members m ON m.user_id = u.id
     WHERE u.id = $1
   `;
-  const res = await query(sql, [userId]);
+  let res = await runner.query(sql, [userId]);
+  if (res.rows[0]) return res.rows[0];
+
+  // Fallback: check if userId was actually a member_id
+  sql = `
+    SELECT
+      m.id AS member_id,
+      m.user_id,
+      m.non_project_buffer_percent,
+      m.team_id,
+      u.full_name,
+      u.email
+    FROM members m
+    LEFT JOIN users u ON u.id = m.user_id
+    WHERE m.id = $1
+  `;
+  res = await runner.query(sql, [userId]);
   return res.rows[0] || null;
 }
 
@@ -227,8 +247,9 @@ export async function evaluateUserWorkload({
 }) {
   const runner = client || { query };
 
-  const member = await getMemberInfo(userId);
+  const member = await getMemberInfo(userId, client);
   const bufferPercent = member?.non_project_buffer_percent ? Number(member.non_project_buffer_percent) : 0.0;
+  const effectiveMemberId = member?.member_id || null;
 
   const weeklyBuckets = getWeeklyBreakdown(startDate, endDate);
   if (weeklyBuckets.length === 0) {
@@ -268,7 +289,7 @@ export async function evaluateUserWorkload({
       AND act.archived_at IS NULL
       AND p.status NOT IN ('ARCHIVED', 'CANCELLED')
   `;
-  const assignParams = [userId, member?.member_id || userId, rangeStart, rangeEnd];
+  const assignParams = [userId, effectiveMemberId || userId, rangeStart, rangeEnd];
   if (excludeAssignmentId) {
     assignSql += ` AND a.id != $5`;
     assignParams.push(excludeAssignmentId);
@@ -293,7 +314,7 @@ export async function evaluateUserWorkload({
       AND start_date <= $4::date
       AND end_date >= $3::date
   `;
-  const leaveRes = await runner.query(leaveSql, [userId, member?.member_id || userId, rangeStart, rangeEnd]);
+  const leaveRes = await runner.query(leaveSql, [userId, effectiveMemberId || userId, rangeStart, rangeEnd]);
   const approvedLeaves = leaveRes.rows;
 
   // 2b. Fetch pending leaves (for soft warning detection, CPD-006)
@@ -312,8 +333,56 @@ export async function evaluateUserWorkload({
       AND start_date <= $4::date
       AND end_date >= $3::date
   `;
-  const pendingLeaveRes = await runner.query(pendingLeaveSql, [userId, member?.member_id || userId, rangeStart, rangeEnd]);
+  const pendingLeaveRes = await runner.query(pendingLeaveSql, [userId, effectiveMemberId || userId, rangeStart, rangeEnd]);
   const pendingLeaves = pendingLeaveRes.rows;
+
+  // 2c. Fetch member calendar exceptions
+  let calendarExceptions = [];
+  const exceptionSql = `
+    SELECT
+      id,
+      TO_CHAR(exception_date, 'YYYY-MM-DD') AS exception_date
+    FROM member_calendar_exceptions
+    WHERE (
+      ($1::uuid IS NOT NULL AND member_id = $1)
+      OR member_id IN (SELECT id FROM members WHERE user_id = $2)
+    )
+    AND exception_date <= $4::date
+    AND exception_date >= $3::date
+  `;
+  const exceptionRes = await runner.query(exceptionSql, [
+    effectiveMemberId,
+    userId,
+    rangeStart,
+    rangeEnd,
+  ]);
+  calendarExceptions = exceptionRes.rows;
+
+  // Build unified set of unavailable working dates (Monday–Friday only, deduplicating approved leave and exceptions)
+  const unavailableWorkingDates = new Set();
+  for (const l of approvedLeaves) {
+    const cur = parseCleanDate(l.start_date);
+    const end = parseCleanDate(l.end_date);
+    if (cur && end && cur <= end) {
+      while (cur <= end) {
+        const day = cur.getDay();
+        if (day >= 1 && day <= 5) {
+          unavailableWorkingDates.add(formatDateYmd(cur));
+        }
+        cur.setDate(cur.getDate() + 1);
+      }
+    }
+  }
+
+  for (const e of calendarExceptions) {
+    const d = parseCleanDate(e.exception_date);
+    if (d) {
+      const day = d.getDay();
+      if (day >= 1 && day <= 5) {
+        unavailableWorkingDates.add(formatDateYmd(d));
+      }
+    }
+  }
 
   let hasPendingLeaveOverlap = false;
   if (proposedPlannedHours > 0 || existingAssignments.length > 0) {
@@ -325,14 +394,14 @@ export async function evaluateUserWorkload({
     }
   }
 
-  const totalProposedWorkingDays = getWorkingDaysInRange(startDate, endDate);
+  const totalProposedWorkingDays = countValidWorkingDays(startDate, endDate, unavailableWorkingDates);
 
   let peakUtilization = 0.0;
   let hasHardConflict = false;
   let hasSoftWarning = hasPendingLeaveOverlap;
 
   const processedWeeks = weeklyBuckets.map(w => {
-    // Calculate leave hours in this week
+    // Calculate leave hours in this week specifically (preserves existing leaveHours field)
     let weekLeaveWorkingDays = 0;
     for (const l of approvedLeaves) {
       const lStart = l.start_date > w.weekStart ? l.start_date : w.weekStart;
@@ -343,10 +412,28 @@ export async function evaluateUserWorkload({
     }
     const leaveHours = weekLeaveWorkingDays * ORGANIZATION_CALENDAR.standardHoursPerDay;
 
-    // Calculate net capacity
-    const netCapacity = calculateNetCapacityHours(w.workingDaysCount, ORGANIZATION_CALENDAR.standardHoursPerDay, leaveHours, bufferPercent);
+    // Calculate total unavailable working days in this week (leave + exceptions combined, deduplicated)
+    let weekUnavailableWorkingDays = 0;
+    const curMon = parseCleanDate(w.weekStart);
+    const curFri = parseCleanDate(w.weekEnd);
+    while (curMon <= curFri) {
+      const dStr = formatDateYmd(curMon);
+      if (unavailableWorkingDates.has(dStr)) {
+        weekUnavailableWorkingDays++;
+      }
+      curMon.setDate(curMon.getDate() + 1);
+    }
+    const totalUnavailableHours = weekUnavailableWorkingDays * ORGANIZATION_CALENDAR.standardHoursPerDay;
 
-    // Calculate existing assignment hours allocated to this week
+    // Calculate net capacity using deduplicated total unavailable hours
+    const netCapacity = calculateNetCapacityHours(
+      w.workingDaysCount,
+      ORGANIZATION_CALENDAR.standardHoursPerDay,
+      totalUnavailableHours,
+      bufferPercent
+    );
+
+    // Calculate existing assignment hours allocated to this week using valid working days
     let existingHoursThisWeek = 0;
     const weeklyAssignments = [];
 
@@ -354,8 +441,8 @@ export async function evaluateUserWorkload({
       const aStart = a.start_date > w.weekStart ? a.start_date : w.weekStart;
       const aEnd = a.end_date < w.weekEnd ? a.end_date : w.weekEnd;
       if (aStart <= aEnd) {
-        const overlapDays = getWorkingDaysInRange(aStart, aEnd);
-        const totalDays = getWorkingDaysInRange(a.start_date, a.end_date);
+        const overlapDays = countValidWorkingDays(aStart, aEnd, unavailableWorkingDates);
+        const totalDays = countValidWorkingDays(a.start_date, a.end_date, unavailableWorkingDates);
         const hoursInWeek = totalDays > 0 ? (overlapDays / totalDays) * Number(a.planned_hours) : Number(a.planned_hours);
         existingHoursThisWeek += hoursInWeek;
         weeklyAssignments.push({
@@ -369,10 +456,19 @@ export async function evaluateUserWorkload({
       }
     }
 
-    // Proposed assignment hours in this week
+    // Proposed assignment hours in this week using valid working days
     let proposedHoursThisWeek = 0;
-    if (proposedPlannedHours > 0 && totalProposedWorkingDays > 0 && w.overlappingWorkingDays > 0) {
-      proposedHoursThisWeek = (w.overlappingWorkingDays / totalProposedWorkingDays) * proposedPlannedHours;
+    if (proposedPlannedHours > 0) {
+      const pStart = startDate > w.weekStart ? startDate : w.weekStart;
+      const pEnd = endDate < w.weekEnd ? endDate : w.weekEnd;
+      if (pStart <= pEnd) {
+        const weekOverlapProposedValidDays = countValidWorkingDays(pStart, pEnd, unavailableWorkingDates);
+        if (totalProposedWorkingDays > 0) {
+          proposedHoursThisWeek = (weekOverlapProposedValidDays / totalProposedWorkingDays) * proposedPlannedHours;
+        } else {
+          proposedHoursThisWeek = proposedPlannedHours;
+        }
+      }
     }
 
     const totalLoad = Math.round((existingHoursThisWeek + proposedHoursThisWeek) * 100) / 100;

@@ -13,7 +13,7 @@ export const ORGANIZATION_CALENDAR = {
   materialChangeEstimatePercentThreshold: 20.0,
 };
 
-function parseCleanDate(val) {
+export function parseCleanDate(val) {
   if (!val) return null;
   if (val instanceof Date) {
     return isNaN(val.getTime()) ? null : val;
@@ -224,6 +224,31 @@ export function getWorkingDaysInRange(startDateStr, endDateStr) {
     const day = cur.getDay();
     if (day >= 1 && day <= 5) {
       count++;
+    }
+    cur.setDate(cur.getDate() + 1);
+  }
+  return count;
+}
+
+/**
+ * Calculate valid working days in a date range [startDateStr, endDateStr],
+ * excluding weekends and any dates present in the optional unavailableDatesSet
+ */
+export function countValidWorkingDays(startDateStr, endDateStr, unavailableDatesSet = null) {
+  if (!startDateStr || !endDateStr) return 0;
+  const d1 = parseCleanDate(startDateStr);
+  const d2 = parseCleanDate(endDateStr);
+  if (!d1 || !d2 || d1 > d2) return 0;
+
+  let count = 0;
+  const cur = new Date(d1);
+  while (cur <= d2) {
+    const day = cur.getDay();
+    if (day >= 1 && day <= 5) {
+      const ymd = formatDateYmd(cur);
+      if (!unavailableDatesSet || !unavailableDatesSet.has(ymd)) {
+        count++;
+      }
     }
     cur.setDate(cur.getDate() + 1);
   }
