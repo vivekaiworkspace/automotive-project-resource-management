@@ -199,39 +199,56 @@ async function generateCaseCode(client = null) {
 
 /**
  * Fetch member metadata (buffer percent, team, etc.)
+ * Strictly enforces userId as users.id.
  */
 export async function getMemberInfo(userId, client = null) {
+  if (!userId) return null;
   const runner = client || { query };
-  let sql = `
+  const sql = `
     SELECT 
       m.id AS member_id,
       m.user_id,
       m.non_project_buffer_percent,
       m.team_id,
+      m.is_active,
       u.full_name,
       u.email
     FROM users u
-    LEFT JOIN members m ON m.user_id = u.id
+    JOIN members m ON m.user_id = u.id
     WHERE u.id = $1
   `;
-  let res = await runner.query(sql, [userId]);
-  if (res.rows[0]) return res.rows[0];
+  const res = await runner.query(sql, [userId]);
+  if (res.rows.length === 0) {
+    // Check if user exists in users table without a member record
+    const userRes = await runner.query('SELECT id, full_name, email FROM users WHERE id = $1', [userId]);
+    if (userRes.rows[0]) {
+      return {
+        member_id: null,
+        user_id: userRes.rows[0].id,
+        non_project_buffer_percent: 0.0,
+        team_id: null,
+        full_name: userRes.rows[0].full_name,
+        email: userRes.rows[0].email,
+      };
+    }
+    return null;
+  }
 
-  // Fallback: check if userId was actually a member_id
-  sql = `
-    SELECT
-      m.id AS member_id,
-      m.user_id,
-      m.non_project_buffer_percent,
-      m.team_id,
-      u.full_name,
-      u.email
-    FROM members m
-    LEFT JOIN users u ON u.id = m.user_id
-    WHERE m.id = $1
-  `;
-  res = await runner.query(sql, [userId]);
-  return res.rows[0] || null;
+  // Handle active vs inactive and check for ambiguity
+  const activeMembers = res.rows.filter(r => r.is_active !== false);
+  const candidates = activeMembers.length > 0 ? activeMembers : res.rows;
+
+  if (candidates.length > 1) {
+    const buffers = new Set(candidates.map(r => Number(r.non_project_buffer_percent || 0)));
+    if (buffers.size > 1) {
+      const err = new Error(`Ambiguous member mapping: user ${userId} is associated with multiple member records having conflicting buffer settings`);
+      err.statusCode = 409;
+      err.code = 'AMBIGUOUS_MEMBER_MAPPING';
+      throw err;
+    }
+  }
+
+  return candidates[0];
 }
 
 /**
@@ -248,8 +265,14 @@ export async function evaluateUserWorkload({
   const runner = client || { query };
 
   const member = await getMemberInfo(userId, client);
-  const bufferPercent = member?.non_project_buffer_percent ? Number(member.non_project_buffer_percent) : 0.0;
-  const effectiveMemberId = member?.member_id || null;
+  if (!member) {
+    const err = new Error(`User not found: ${userId}`);
+    err.statusCode = 404;
+    err.code = 'USER_NOT_FOUND';
+    throw err;
+  }
+
+  const bufferPercent = member.non_project_buffer_percent ? Number(member.non_project_buffer_percent) : 0.0;
 
   const weeklyBuckets = getWeeklyBreakdown(startDate, endDate);
   if (weeklyBuckets.length === 0) {
@@ -266,7 +289,7 @@ export async function evaluateUserWorkload({
   const rangeStart = weeklyBuckets[0].weekStart;
   const rangeEnd = weeklyBuckets[weeklyBuckets.length - 1].weekEnd;
 
-  // 1. Fetch cross-project active assignments
+  // 1. Fetch cross-project active assignments intersecting the evaluated range
   let assignSql = `
     SELECT 
       a.id AS assignment_id,
@@ -282,23 +305,34 @@ export async function evaluateUserWorkload({
     FROM assignments a
     JOIN activities act ON act.id = a.activity_id
     JOIN projects p ON p.id = act.project_id
-    WHERE (a.user_id = $1 OR a.member_id = $2)
+    WHERE (a.user_id = $1 OR a.member_id IN (SELECT id FROM members WHERE user_id = $1))
       AND a.status = 'ACTIVE'
-      AND a.start_date <= $4::date
-      AND a.end_date >= $3::date
+      AND a.start_date <= $3::date
+      AND a.end_date >= $2::date
       AND act.archived_at IS NULL
       AND p.status NOT IN ('ARCHIVED', 'CANCELLED')
   `;
-  const assignParams = [userId, effectiveMemberId || userId, rangeStart, rangeEnd];
+  const assignParams = [userId, rangeStart, rangeEnd];
   if (excludeAssignmentId) {
-    assignSql += ` AND a.id != $5`;
+    assignSql += ` AND a.id != $4`;
     assignParams.push(excludeAssignmentId);
   }
 
   const assignmentsRes = await runner.query(assignSql, assignParams);
   const existingAssignments = assignmentsRes.rows;
 
-  // 2. Fetch approved leaves
+  // Compute overall interval bounds needed across the evaluated range,
+  // proposed interval, and all intersecting active assignments to ensure
+  // assignment denominators are evaluated over their complete valid-day sets.
+  let unavailMinDate = startDate < rangeStart ? startDate : rangeStart;
+  let unavailMaxDate = endDate > rangeEnd ? endDate : rangeEnd;
+
+  for (const a of existingAssignments) {
+    if (a.start_date < unavailMinDate) unavailMinDate = a.start_date;
+    if (a.end_date > unavailMaxDate) unavailMaxDate = a.end_date;
+  }
+
+  // 2. Fetch approved leaves across the complete bounding interval
   const leaveSql = `
     SELECT 
       id,
@@ -309,15 +343,15 @@ export async function evaluateUserWorkload({
       TO_CHAR(end_date, 'YYYY-MM-DD') AS end_date,
       status
     FROM leave_records
-    WHERE (user_id = $1 OR member_id = $2)
+    WHERE (user_id = $1 OR member_id IN (SELECT id FROM members WHERE user_id = $1))
       AND status = 'APPROVED'
-      AND start_date <= $4::date
-      AND end_date >= $3::date
+      AND start_date <= $3::date
+      AND end_date >= $2::date
   `;
-  const leaveRes = await runner.query(leaveSql, [userId, effectiveMemberId || userId, rangeStart, rangeEnd]);
+  const leaveRes = await runner.query(leaveSql, [userId, unavailMinDate, unavailMaxDate]);
   const approvedLeaves = leaveRes.rows;
 
-  // 2b. Fetch pending leaves (for soft warning detection, CPD-006)
+  // 2b. Fetch pending leaves
   const pendingLeaveSql = `
     SELECT 
       id,
@@ -328,35 +362,26 @@ export async function evaluateUserWorkload({
       TO_CHAR(end_date, 'YYYY-MM-DD') AS end_date,
       status
     FROM leave_records
-    WHERE (user_id = $1 OR member_id = $2)
+    WHERE (user_id = $1 OR member_id IN (SELECT id FROM members WHERE user_id = $1))
       AND status = 'PENDING'
-      AND start_date <= $4::date
-      AND end_date >= $3::date
+      AND start_date <= $3::date
+      AND end_date >= $2::date
   `;
-  const pendingLeaveRes = await runner.query(pendingLeaveSql, [userId, effectiveMemberId || userId, rangeStart, rangeEnd]);
+  const pendingLeaveRes = await runner.query(pendingLeaveSql, [userId, unavailMinDate, unavailMaxDate]);
   const pendingLeaves = pendingLeaveRes.rows;
 
   // 2c. Fetch member calendar exceptions
-  let calendarExceptions = [];
   const exceptionSql = `
     SELECT
       id,
       TO_CHAR(exception_date, 'YYYY-MM-DD') AS exception_date
     FROM member_calendar_exceptions
-    WHERE (
-      ($1::uuid IS NOT NULL AND member_id = $1)
-      OR member_id IN (SELECT id FROM members WHERE user_id = $2)
-    )
-    AND exception_date <= $4::date
-    AND exception_date >= $3::date
+    WHERE member_id IN (SELECT id FROM members WHERE user_id = $1)
+      AND exception_date <= $3::date
+      AND exception_date >= $2::date
   `;
-  const exceptionRes = await runner.query(exceptionSql, [
-    effectiveMemberId,
-    userId,
-    rangeStart,
-    rangeEnd,
-  ]);
-  calendarExceptions = exceptionRes.rows;
+  const exceptionRes = await runner.query(exceptionSql, [userId, unavailMinDate, unavailMaxDate]);
+  const calendarExceptions = exceptionRes.rows;
 
   // Build unified set of unavailable working dates (Monday–Friday only, deduplicating approved leave and exceptions)
   const unavailableWorkingDates = new Set();
@@ -435,15 +460,33 @@ export async function evaluateUserWorkload({
 
     // Calculate existing assignment hours allocated to this week using valid working days
     let existingHoursThisWeek = 0;
+    let weekHasUnschedulableAssignment = false;
     const weeklyAssignments = [];
 
     for (const a of existingAssignments) {
       const aStart = a.start_date > w.weekStart ? a.start_date : w.weekStart;
       const aEnd = a.end_date < w.weekEnd ? a.end_date : w.weekEnd;
       if (aStart <= aEnd) {
-        const overlapDays = countValidWorkingDays(aStart, aEnd, unavailableWorkingDates);
-        const totalDays = countValidWorkingDays(a.start_date, a.end_date, unavailableWorkingDates);
-        const hoursInWeek = totalDays > 0 ? (overlapDays / totalDays) * Number(a.planned_hours) : Number(a.planned_hours);
+        const totalValidDays = countValidWorkingDays(a.start_date, a.end_date, unavailableWorkingDates);
+        const overlapValidDays = countValidWorkingDays(aStart, aEnd, unavailableWorkingDates);
+        let hoursInWeek = 0;
+        let isZeroValidDayUnschedulable = false;
+
+        if (totalValidDays > 0) {
+          hoursInWeek = (overlapValidDays / totalValidDays) * Number(a.planned_hours);
+        } else {
+          // Assignment interval has zero valid working days across its entire span.
+          // Standard calendar fallback solely to represent unschedulable load.
+          isZeroValidDayUnschedulable = true;
+          const standardTotalDays = getWorkingDaysInRange(a.start_date, a.end_date);
+          const standardOverlapDays = getWorkingDaysInRange(aStart, aEnd);
+          if (standardTotalDays > 0) {
+            hoursInWeek = (standardOverlapDays / standardTotalDays) * Number(a.planned_hours);
+          } else {
+            hoursInWeek = 0;
+          }
+        }
+
         existingHoursThisWeek += hoursInWeek;
         weeklyAssignments.push({
           assignment_id: a.assignment_id,
@@ -453,26 +496,49 @@ export async function evaluateUserWorkload({
           activity_title: a.activity_title,
           hoursInWeek: Math.round(hoursInWeek * 100) / 100,
         });
+
+        if (isZeroValidDayUnschedulable && Number(a.planned_hours) > 0) {
+          weekHasUnschedulableAssignment = true;
+        }
       }
     }
 
     // Proposed assignment hours in this week using valid working days
     let proposedHoursThisWeek = 0;
+    let proposedIsZeroValidDays = false;
     if (proposedPlannedHours > 0) {
       const pStart = startDate > w.weekStart ? startDate : w.weekStart;
       const pEnd = endDate < w.weekEnd ? endDate : w.weekEnd;
       if (pStart <= pEnd) {
-        const weekOverlapProposedValidDays = countValidWorkingDays(pStart, pEnd, unavailableWorkingDates);
         if (totalProposedWorkingDays > 0) {
+          const weekOverlapProposedValidDays = countValidWorkingDays(pStart, pEnd, unavailableWorkingDates);
           proposedHoursThisWeek = (weekOverlapProposedValidDays / totalProposedWorkingDays) * proposedPlannedHours;
         } else {
-          proposedHoursThisWeek = proposedPlannedHours;
+          // Zero valid working days across the entire proposed interval.
+          // Use standard calendar fallback to represent unschedulable proposed load for conflict accounting without duplication.
+          proposedIsZeroValidDays = true;
+          const standardProposedTotalDays = getWorkingDaysInRange(startDate, endDate);
+          const standardProposedOverlapDays = getWorkingDaysInRange(pStart, pEnd);
+          if (standardProposedTotalDays > 0) {
+            proposedHoursThisWeek = (standardProposedOverlapDays / standardProposedTotalDays) * proposedPlannedHours;
+          } else {
+            proposedHoursThisWeek = 0;
+          }
         }
       }
     }
 
     const totalLoad = Math.round((existingHoursThisWeek + proposedHoursThisWeek) * 100) / 100;
     const evalRes = evaluateUtilization(totalLoad, netCapacity);
+
+    // Explicitly identify weeks containing an unschedulable assignment or proposed load as CAPACITY_CONFLICT
+    if ((weekHasUnschedulableAssignment || proposedIsZeroValidDays) && (totalLoad > 0 || netCapacity === 0)) {
+      evalRes.status = 'CAPACITY_CONFLICT';
+      evalRes.label = CONFLICT_LEVELS.CAPACITY_CONFLICT.label;
+      if (netCapacity === 0 || evalRes.plannedUtilizationPercent < 100.0) {
+        evalRes.plannedUtilizationPercent = 999.99;
+      }
+    }
 
     if (evalRes.plannedUtilizationPercent > peakUtilization) {
       peakUtilization = evalRes.plannedUtilizationPercent;
@@ -501,6 +567,13 @@ export async function evaluateUserWorkload({
       weeklyAssignments,
     };
   });
+
+  if (totalProposedWorkingDays === 0 && proposedPlannedHours > 0) {
+    hasHardConflict = true;
+    if (peakUtilization < 999.99) {
+      peakUtilization = 999.99;
+    }
+  }
 
   let conflictStatus = 'OK';
   let conflictLabel = CONFLICT_LEVELS.OK.label;
@@ -1642,6 +1715,57 @@ export async function saveAssignmentWithCapacityValidation({
       proposedPlannedHours: plannedHours,
       client,
     });
+
+    // Reject new positive-effort assignment proposals when the entire interval has zero valid working days.
+    // Capacity overrides cannot bypass the absence of any valid scheduling day.
+    const allUnavailableDates = new Set();
+    for (const l of workload.approvedLeaves || []) {
+      const cur = parseCleanDate(l.start_date);
+      const end = parseCleanDate(l.end_date);
+      if (cur && end && cur <= end) {
+        while (cur <= end) {
+          const day = cur.getDay();
+          if (day >= 1 && day <= 5) allUnavailableDates.add(formatDateYmd(cur));
+          cur.setDate(cur.getDate() + 1);
+        }
+      }
+    }
+    const exRes = await client.query(`
+      SELECT TO_CHAR(exception_date, 'YYYY-MM-DD') AS exception_date
+      FROM member_calendar_exceptions
+      WHERE member_id IN (SELECT id FROM members WHERE user_id = $1)
+        AND exception_date <= $3::date AND exception_date >= $2::date
+    `, [userId, startDate, endDate]);
+    for (const row of exRes.rows) {
+      const d = parseCleanDate(row.exception_date);
+      if (d) {
+        const day = d.getDay();
+        if (day >= 1 && day <= 5) allUnavailableDates.add(formatDateYmd(d));
+      }
+    }
+    const propValidDays = countValidWorkingDays(startDate, endDate, allUnavailableDates);
+    if (propValidDays === 0 && Number(plannedHours || 0) > 0) {
+      await client.query('ROLLBACK');
+      txCommitted = true;
+      client.release();
+
+      const err = new Error(
+        'Capacity Conflict: assignment save blocked because the proposed interval contains zero valid working days. Overrides cannot bypass the absence of any valid scheduling day.'
+      );
+      err.statusCode = 409;
+      err.code = 'CAPACITY_HARD_CONFLICT';
+      err.conflictDetails = {
+        conflict_level: 'CAPACITY_CONFLICT',
+        conflict_label: CONFLICT_LEVELS.CAPACITY_CONFLICT.label,
+        case: null,
+        workload,
+        planned_utilization: 999.99,
+        member_id: userId,
+        threshold: 100.00,
+        requires_override: false,
+      };
+      throw err;
+    }
 
     const criticality = await evaluateCriticality({
       projectId: activity.project_id,

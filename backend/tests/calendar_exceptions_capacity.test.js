@@ -646,4 +646,289 @@ describe('Calendar Exceptions in Capacity Evaluation Suite', () => {
     assert.equal(savedResult.assignment.status, 'ACTIVE');
     assert.equal(savedResult.assignment.planned_hours, '36.00');
   });
+
+  // P. Two-week entirely unavailable proposed interval: conserved effort and blocked without override bypass
+  test('TC-P: Two-week entirely unavailable proposed interval strictly conserves effort and blocks save without override bypass', async () => {
+    // Mon 2026-11-09 to Fri 2026-11-20: 10 weekdays all unavailable
+    await query(`
+      INSERT INTO member_calendar_exceptions (member_id, exception_date, reason)
+      VALUES
+        ($1, '2026-11-09', 'TC-P 1'), ($1, '2026-11-10', 'TC-P 2'),
+        ($1, '2026-11-11', 'TC-P 3'), ($1, '2026-11-12', 'TC-P 4'),
+        ($1, '2026-11-13', 'TC-P 5'), ($1, '2026-11-16', 'TC-P 6'),
+        ($1, '2026-11-17', 'TC-P 7'), ($1, '2026-11-18', 'TC-P 8'),
+        ($1, '2026-11-19', 'TC-P 9'), ($1, '2026-11-20', 'TC-P 10')
+    `, [member1Record.id]);
+
+    const res = await evaluateUserWorkload({
+      userId: member1User.id,
+      startDate: '2026-11-09',
+      endDate: '2026-11-20',
+      proposedPlannedHours: 10.0,
+    });
+
+    assert.equal(res.conflictStatus, 'CAPACITY_CONFLICT');
+    assert.equal(res.peakUtilizationPercent, 999.99);
+    assert.equal(res.weeks.length, 2);
+
+    const week1 = res.weeks[0];
+    const week2 = res.weeks[1];
+
+    assert.equal(week1.proposedHours, 5.0, 'Week 1 receives 5.0h fallback accounting');
+    assert.equal(week2.proposedHours, 5.0, 'Week 2 receives 5.0h fallback accounting');
+    assert.equal(week1.proposedHours + week2.proposedHours, 10.0, 'Total proposed effort strictly conserved across weeks');
+    assert.equal(week1.netCapacityHours, 0.0);
+    assert.equal(week2.netCapacityHours, 0.0);
+    assert.equal(week1.utilizationPercent, 999.99);
+    assert.equal(week2.utilizationPercent, 999.99);
+
+    // Save with override MUST still be rejected: overrides cannot bypass zero valid scheduling days
+    await assert.rejects(
+      async () => {
+        await saveAssignmentWithCapacityValidation({
+          activityId: ACT_INT_1,
+          userId: member1User.id,
+          startDate: '2026-11-09',
+          endDate: '2026-11-20',
+          plannedHours: 10.0,
+          currentUser: pm1User,
+          override: {
+            justification_reason: 'Attempting to override an interval with zero valid working days',
+          },
+        });
+      },
+      (err) => {
+        assert.equal(err.statusCode, 409);
+        assert.equal(err.code, 'CAPACITY_HARD_CONFLICT');
+        assert.equal(err.conflictDetails.requires_override, false, 'Override cannot bypass absence of valid scheduling day');
+        return true;
+      }
+    );
+  });
+
+  // Q. Two-week entirely unavailable existing assignment: conserved effort and conflict surfaced
+  test('TC-Q: Two-week entirely unavailable existing assignment conserves effort and surfaces conflict without rewriting record', async () => {
+    // 1. Insert existing active assignment for 40 hours spanning 2 weeks
+    const assignRes = await query(`
+      INSERT INTO assignments (activity_id, user_id, start_date, end_date, planned_hours, status)
+      VALUES ($1, $2, '2026-11-09', '2026-11-20', 40.00, 'ACTIVE')
+      RETURNING *;
+    `, [ACT_INT_1, member1User.id]);
+    const existingAssignment = assignRes.rows[0];
+
+    // 2. All 10 weekdays become unavailable via calendar exceptions
+    await query(`
+      INSERT INTO member_calendar_exceptions (member_id, exception_date, reason)
+      VALUES
+        ($1, '2026-11-09', 'TC-Q 1'), ($1, '2026-11-10', 'TC-Q 2'),
+        ($1, '2026-11-11', 'TC-Q 3'), ($1, '2026-11-12', 'TC-Q 4'),
+        ($1, '2026-11-13', 'TC-Q 5'), ($1, '2026-11-16', 'TC-Q 6'),
+        ($1, '2026-11-17', 'TC-Q 7'), ($1, '2026-11-18', 'TC-Q 8'),
+        ($1, '2026-11-19', 'TC-Q 9'), ($1, '2026-11-20', 'TC-Q 10')
+    `, [member1Record.id]);
+
+    const res = await evaluateUserWorkload({
+      userId: member1User.id,
+      startDate: '2026-11-09',
+      endDate: '2026-11-20',
+      proposedPlannedHours: 0,
+    });
+
+    assert.equal(res.conflictStatus, 'CAPACITY_CONFLICT');
+    assert.equal(res.peakUtilizationPercent, 999.99);
+
+    const week1 = res.weeks[0];
+    const week2 = res.weeks[1];
+
+    assert.equal(week1.existingHours, 20.0, 'Week 1 receives 20.0h fallback accounting');
+    assert.equal(week2.existingHours, 20.0, 'Week 2 receives 20.0h fallback accounting');
+    assert.equal(week1.existingHours + week2.existingHours, 40.0, 'Total planned hours conserved (40.0h)');
+    assert.equal(week1.utilizationPercent, 999.99);
+    assert.equal(week2.utilizationPercent, 999.99);
+
+    // Verify stored assignment record was not rewritten
+    const checkRes = await query('SELECT planned_hours, status FROM assignments WHERE id = $1', [existingAssignment.id]);
+    assert.equal(checkRes.rows[0].status, 'ACTIVE');
+    assert.equal(checkRes.rows[0].planned_hours, '40.00');
+  });
+
+  // R. Zero-valid-day week within an otherwise valid multi-week interval
+  test('TC-R: Zero-valid-day week within an otherwise valid multi-week interval shifts effort cleanly to valid week', async () => {
+    // Week 1 has all 5 days as exceptions (0 valid days)
+    // Week 2 has 0 exceptions (5 valid days)
+    // Total valid days = 5. Total planned hours = 40.0
+    await query(`
+      INSERT INTO member_calendar_exceptions (member_id, exception_date, reason)
+      VALUES
+        ($1, '2026-11-09', 'TC-R 1'), ($1, '2026-11-10', 'TC-R 2'),
+        ($1, '2026-11-11', 'TC-R 3'), ($1, '2026-11-12', 'TC-R 4'),
+        ($1, '2026-11-13', 'TC-R 5')
+    `, [member1Record.id]);
+
+    const res = await evaluateUserWorkload({
+      userId: member1User.id,
+      startDate: '2026-11-09',
+      endDate: '2026-11-20',
+      proposedPlannedHours: 40.0,
+    });
+
+    assert.equal(res.weeks.length, 2);
+    const week1 = res.weeks[0];
+    const week2 = res.weeks[1];
+
+    // Week 1 has 0 valid days -> 0h allocated
+    assert.equal(week1.proposedHours, 0.0);
+    assert.equal(week1.netCapacityHours, 0.0);
+
+    // Week 2 has all 5 valid days -> full 40.0h allocated
+    assert.equal(week2.proposedHours, 40.0);
+    assert.equal(week2.netCapacityHours, 40.0);
+    assert.equal(week2.utilizationPercent, 100.0);
+
+    // Total effort conserved: 0.0 + 40.0 = 40.0
+    assert.equal(week1.proposedHours + week2.proposedHours, 40.0, 'No hours dropped or duplicated');
+  });
+
+  // S. Full-range versus single-week query equality with exceptions outside the query window
+  test('TC-S: Full-range versus single-week query yields identical assigned hours for overlapping week', async () => {
+    // Existing active assignment: Nov 09 to Nov 20 (2 weeks, 40.0 planned hours)
+    await query(`
+      INSERT INTO assignments (activity_id, user_id, start_date, end_date, planned_hours, status)
+      VALUES ($1, $2, '2026-11-09', '2026-11-20', 40.00, 'ACTIVE')
+    `, [ACT_INT_1, member1User.id]);
+
+    // Week 1 has 3 exception days (Wed, Thu, Fri). Week 1 valid days = 2.
+    // Week 2 has 0 exceptions. Week 2 valid days = 5.
+    // Total valid days across assignment = 7.
+    // Week 2 allocated effort: (5 / 7) * 40.0 = 28.57h
+    await query(`
+      INSERT INTO member_calendar_exceptions (member_id, exception_date, reason)
+      VALUES
+        ($1, '2026-11-11', 'TC-S Wed'),
+        ($1, '2026-11-12', 'TC-S Thu'),
+        ($1, '2026-11-13', 'TC-S Fri')
+    `, [member1Record.id]);
+
+    // Query 1: Full interval (Nov 09 to Nov 20)
+    const resFull = await evaluateUserWorkload({
+      userId: member1User.id,
+      startDate: '2026-11-09',
+      endDate: '2026-11-20',
+      proposedPlannedHours: 0,
+    });
+    const fullWeek2 = resFull.weeks[1];
+    assert.equal(fullWeek2.existingHours, 28.57, 'Full range query evaluates Week 2 to 28.57h');
+
+    // Query 2: Single week (Nov 16 to Nov 20) — exceptions in Nov 11-13 fall OUTSIDE this queried week
+    const resSingle = await evaluateUserWorkload({
+      userId: member1User.id,
+      startDate: '2026-11-16',
+      endDate: '2026-11-20',
+      proposedPlannedHours: 0,
+    });
+    const singleWeek = resSingle.weeks[0];
+
+    // Assert absolute invariance: single week query must equal full range evaluation
+    assert.equal(
+      singleWeek.existingHours,
+      fullWeek2.existingHours,
+      'Querying single week alone must produce identical assigned hours to full-interval evaluation'
+    );
+    assert.equal(singleWeek.existingHours, 28.57);
+  });
+
+  // T. Unequal standard-weekday overlaps and weekend-only intervals
+  test('TC-T: Unequal standard-weekday overlaps allocate proportionally and weekend-only proposals are blocked', async () => {
+    // 1. Unequal weekdays across weeks: Wed 2026-11-11 to Tue 2026-11-17 (3 weekdays in W1, 2 weekdays in W2 = 5 total)
+    // All 5 days are exceptions -> total planned 25.0h
+    await query(`
+      INSERT INTO member_calendar_exceptions (member_id, exception_date, reason)
+      VALUES
+        ($1, '2026-11-11', 'TC-T 1'), ($1, '2026-11-12', 'TC-T 2'), ($1, '2026-11-13', 'TC-T 3'),
+        ($1, '2026-11-16', 'TC-T 4'), ($1, '2026-11-17', 'TC-T 5')
+    `, [member1Record.id]);
+
+    const res = await evaluateUserWorkload({
+      userId: member1User.id,
+      startDate: '2026-11-11',
+      endDate: '2026-11-17',
+      proposedPlannedHours: 25.0,
+    });
+
+    assert.equal(res.weeks.length, 2);
+    // Week 1 has 3 standard days -> (3 / 5) * 25.0 = 15.0h
+    assert.equal(res.weeks[0].proposedHours, 15.0);
+    // Week 2 has 2 standard days -> (2 / 5) * 25.0 = 10.0h
+    assert.equal(res.weeks[1].proposedHours, 10.0);
+    assert.equal(res.weeks[0].proposedHours + res.weeks[1].proposedHours, 25.0, 'Unequal standard overlaps conserve total effort');
+
+    // 2. Weekend-only proposal (Sat 2026-11-14 to Sun 2026-11-15): 0 standard working days
+    await assert.rejects(
+      async () => {
+        await saveAssignmentWithCapacityValidation({
+          activityId: ACT_INT_1,
+          userId: member1User.id,
+          startDate: '2026-11-14',
+          endDate: '2026-11-15',
+          plannedHours: 8.0,
+          currentUser: pm1User,
+        });
+      },
+      (err) => {
+        assert.equal(err.statusCode, 409);
+        assert.equal(err.code, 'CAPACITY_HARD_CONFLICT');
+        return true;
+      }
+    );
+  });
+
+  // U. Identity handling: Invalid member ID passed as userId fails safely
+  test('TC-U: Invalid member ID passed as userId fails safely without bypassing authorization', async () => {
+    // Passing a member_id instead of a user_id must throw USER_NOT_FOUND (404)
+    await assert.rejects(
+      async () => {
+        await evaluateUserWorkload({
+          userId: member1Record.id, // member_id, NOT user_id
+          startDate: '2026-11-09',
+          endDate: '2026-11-13',
+          proposedPlannedHours: 0,
+        });
+      },
+      (err) => {
+        assert.equal(err.statusCode, 404);
+        assert.equal(err.code, 'USER_NOT_FOUND');
+        return true;
+      }
+    );
+  });
+
+  // V. Identity handling: Deterministic safe rejection of ambiguous member mappings with conflicting buffers
+  test('TC-V: User associated with multiple member records having conflicting buffers is safely rejected', async () => {
+    // Insert a conflicting secondary member record for member2User with a 25% buffer (original is 0%)
+    const conflictMemberId = '30000000-0000-0000-0000-000000000099';
+    try {
+      await query(`
+        INSERT INTO members (id, team_id, user_id, employee_id, first_name, last_name, email, non_project_buffer_percent)
+        VALUES ($1, $2, $3, 'EMP-CONFLICT-99', 'Conflict', 'Member', 'conflict.member99@example.test', 25.00)
+      `, [conflictMemberId, TEAM_INT_ID, member2User.id]);
+
+      await assert.rejects(
+        async () => {
+          await evaluateUserWorkload({
+            userId: member2User.id,
+            startDate: '2026-11-09',
+            endDate: '2026-11-13',
+            proposedPlannedHours: 0,
+          });
+        },
+        (err) => {
+          assert.equal(err.statusCode, 409);
+          assert.equal(err.code, 'AMBIGUOUS_MEMBER_MAPPING');
+          return true;
+        }
+      );
+    } finally {
+      await query('DELETE FROM members WHERE id = $1', [conflictMemberId]);
+    }
+  });
 });
