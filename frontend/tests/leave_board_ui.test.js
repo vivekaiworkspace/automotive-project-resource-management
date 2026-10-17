@@ -557,4 +557,192 @@ describe('Leave Management Board UI Tests (Phase 8 Slice 1 Corrections)', () => 
     });
   });
 
+  describe('8. Session Expiry & HTTP 401 / 403 Request Boundary Handling', () => {
+    let mockElements = {};
+    let prevGlobalDoc;
+    let prevGlobalWindow;
+    let prevGlobalFetch;
+
+    beforeEach(() => {
+      mockElements = {
+        'leave-loading-state': { style: { display: 'none' } },
+        'leave-empty-state': { style: { display: 'none' } },
+        'leave-error-state': { style: { display: 'none' } },
+        'leave-error-message': { textContent: '' },
+        'leave-tab-content': { style: { display: 'none' } },
+        'filter-start-date': { value: '' },
+        'filter-end-date': { value: '' },
+        'filter-status': { value: '' },
+        'btn-submit-leave': { disabled: false, textContent: 'Submit Request', dataset: {} },
+        'leave-form-error': { style: { display: 'none' }, textContent: '' },
+        'input-start-date': { value: '2026-11-16' },
+        'input-end-date': { value: '2026-11-20' },
+        'input-leave-type': { value: 'ANNUAL' },
+        'input-leave-reason': { value: 'Vacation' },
+        'input-target-user-id': { value: '' },
+        'modal-leave-request': { style: { display: 'flex' } },
+        'alert-banner': { style: { display: 'none' }, className: '' },
+        'alert-message': { textContent: '' },
+        'form-leave-request': { reset: () => {} },
+      };
+
+      prevGlobalDoc = globalThis.document;
+      prevGlobalWindow = globalThis.window;
+      prevGlobalFetch = globalThis.fetch;
+
+      globalThis.window = {
+        location: { href: '' },
+        confirm: () => true,
+      };
+
+      globalThis.document = {
+        getElementById: (id) => mockElements[id] || null,
+        querySelectorAll: () => [],
+      };
+    });
+
+    afterEach(() => {
+      globalThis.document = prevGlobalDoc;
+      globalThis.window = prevGlobalWindow;
+      globalThis.fetch = prevGlobalFetch;
+      LeaveBoard.resetApiFetch();
+    });
+
+    test('List refresh receiving HTTP 401 initiates login redirection without ordinary inline load-error state', async () => {
+      globalThis.fetch = async () => ({
+        ok: false,
+        status: 401,
+        statusText: 'Unauthorized',
+        json: async () => ({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } }),
+      });
+
+      await LeaveBoard.loadLeaveRecords();
+
+      assert.equal(globalThis.window.location.href, '/login.html', 'Must redirect to /login.html on 401');
+      assert.equal(mockElements['leave-error-state'].style.display, 'none', 'Inline error state must NOT be rendered');
+      assert.equal(mockElements['leave-error-message'].textContent, '', 'Error message must NOT be populated');
+    });
+
+    test('Submission receiving HTTP 401 initiates login redirection, suppresses form error, and cleans up guard', async () => {
+      globalThis.fetch = async () => ({
+        ok: false,
+        status: 401,
+        statusText: 'Unauthorized',
+        json: async () => ({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } }),
+      });
+
+      await LeaveBoard.handleCreateLeave({ preventDefault: () => {} });
+
+      assert.equal(globalThis.window.location.href, '/login.html', 'Must redirect to /login.html on 401');
+      assert.equal(LeaveBoard.isSubmitting(), false, 'isSubmitting guard must be cleared in finally');
+      assert.equal(mockElements['btn-submit-leave'].disabled, false, 'Submit button must be restored');
+      assert.equal(mockElements['leave-form-error'].style.display, 'none', 'Form error must NOT be rendered');
+    });
+
+    test('Cancellation receiving HTTP 401 initiates login redirection, suppresses alert error, and cleans up guard', async () => {
+      globalThis.fetch = async () => ({
+        ok: false,
+        status: 401,
+        statusText: 'Unauthorized',
+        json: async () => ({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } }),
+      });
+
+      const mockBtn = { disabled: false };
+      await LeaveBoard.handleCancelLeave('leave-rec-401', mockBtn);
+
+      assert.equal(globalThis.window.location.href, '/login.html', 'Must redirect to /login.html on 401');
+      assert.equal(LeaveBoard.isCancelling('leave-rec-401'), false, 'Cancelling guard must be cleared in finally');
+      assert.equal(mockBtn.disabled, false, 'Trigger button must be re-enabled');
+      assert.equal(mockElements['alert-banner'].style.display, 'none', 'Alert banner error must NOT be displayed');
+    });
+
+    test('HTTP 403 on list refresh does NOT redirect to login and renders safe authorization error state', async () => {
+      globalThis.fetch = async () => ({
+        ok: false,
+        status: 403,
+        statusText: 'Forbidden',
+        json: async () => ({ error: { code: 'FORBIDDEN', message: 'Access denied: insufficient view scope' } }),
+      });
+
+      await LeaveBoard.loadLeaveRecords();
+
+      assert.equal(globalThis.window.location.href, '', 'Must NOT redirect to /login.html on HTTP 403');
+      assert.equal(mockElements['leave-error-state'].style.display, 'flex', 'Safe error state must be rendered on 403');
+      assert.ok(mockElements['leave-error-message'].textContent.includes('insufficient view scope'), 'Safe error message displayed');
+    });
+
+    test('HTTP 403 on submission does NOT redirect, renders safe form error, and preserves guard cleanup', async () => {
+      globalThis.fetch = async () => ({
+        ok: false,
+        status: 403,
+        statusText: 'Forbidden',
+        json: async () => ({ error: { code: 'FORBIDDEN', message: 'Cannot create leave for this user' } }),
+      });
+
+      await LeaveBoard.handleCreateLeave({ preventDefault: () => {} });
+
+      assert.equal(globalThis.window.location.href, '', 'Must NOT redirect on HTTP 403');
+      assert.equal(LeaveBoard.isSubmitting(), false, 'isSubmitting guard must be cleared in finally');
+      assert.equal(mockElements['btn-submit-leave'].disabled, false, 'Submit button must be restored');
+      assert.equal(mockElements['leave-form-error'].style.display, 'block', 'Form error must be displayed on 403');
+      assert.ok(mockElements['leave-form-error'].textContent.includes('Cannot create leave'), 'Safe error message displayed');
+    });
+
+    test('HTTP 403 on cancellation does NOT redirect, renders safe alert error, and preserves guard cleanup', async () => {
+      globalThis.fetch = async () => ({
+        ok: false,
+        status: 403,
+        statusText: 'Forbidden',
+        json: async () => ({ error: { code: 'FORBIDDEN', message: 'You are not authorized to cancel this record' } }),
+      });
+
+      const mockBtn = { disabled: false };
+      await LeaveBoard.handleCancelLeave('leave-rec-403', mockBtn);
+
+      assert.equal(globalThis.window.location.href, '', 'Must NOT redirect on HTTP 403');
+      assert.equal(LeaveBoard.isCancelling('leave-rec-403'), false, 'Cancelling guard must be cleared in finally');
+      assert.equal(mockBtn.disabled, false, 'Trigger button must be re-enabled');
+      assert.equal(mockElements['alert-banner'].style.display, 'flex', 'Alert banner must be displayed on 403');
+      assert.ok(mockElements['alert-message'].textContent.includes('not authorized to cancel'), 'Safe error message displayed');
+    });
+
+    test('Session bootstrap initSessionAndProfile redirects on 401 and retains safe error on 403', async () => {
+      // 401 on /api/v1/auth/me
+      globalThis.fetch = async () => ({
+        ok: false,
+        status: 401,
+        statusText: 'Unauthorized',
+        json: async () => ({ error: { code: 'UNAUTHORIZED', message: 'Session expired' } }),
+      });
+
+      await LeaveBoard.initSessionAndProfile();
+      assert.equal(globalThis.window.location.href, '/login.html', 'initSessionAndProfile must redirect on 401');
+      assert.equal(mockElements['leave-error-state'].style.display, 'none', 'Error state not shown on 401 redirect');
+
+      // Reset and test 403
+      globalThis.window.location.href = '';
+      globalThis.fetch = async () => ({
+        ok: false,
+        status: 403,
+        statusText: 'Forbidden',
+        json: async () => ({ error: { code: 'FORBIDDEN', message: 'Account suspended' } }),
+      });
+
+      await LeaveBoard.initSessionAndProfile();
+      assert.equal(globalThis.window.location.href, '', 'Must NOT redirect on 403');
+      assert.equal(mockElements['leave-error-state'].style.display, 'flex', 'Error state shown on 403');
+    });
+
+    test('customApiFetch throwing 401 error also initiates redirection and halts error rendering', async () => {
+      LeaveBoard.setApiFetch(async () => {
+        const err = new Error('HTTP 401: Unauthorized');
+        err.status = 401;
+        throw err;
+      });
+
+      await LeaveBoard.loadLeaveRecords();
+      assert.equal(globalThis.window.location.href, '/login.html', 'customApiFetch 401 must trigger redirect');
+      assert.equal(mockElements['leave-error-state'].style.display, 'none', 'Inline error state suppressed');
+    });
+  });
 });

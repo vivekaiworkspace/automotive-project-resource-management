@@ -86,11 +86,29 @@
   }
 
   /**
+   * Redirect to login page on session expiry or authentication failure
+   */
+  function redirectToLogin() {
+    if (typeof window !== 'undefined' && window.location) {
+      window.location.href = '/login.html';
+    } else if (typeof globalThis !== 'undefined' && globalThis.location) {
+      globalThis.location.href = '/login.html';
+    }
+  }
+
+  /**
    * Standardized authenticated API fetch wrapper
    */
   async function apiFetch(url, options = {}) {
     if (customApiFetch) {
-      return customApiFetch(url, options);
+      try {
+        return await customApiFetch(url, options);
+      } catch (err) {
+        if (err && (err.status === 401 || Number(err.status) === 401)) {
+          redirectToLogin();
+        }
+        throw err;
+      }
     }
 
     const defaultHeaders = {
@@ -124,6 +142,9 @@
       err.status = res.status;
       err.code = data?.error?.code;
       err.details = data?.error?.details;
+      if (res.status === 401) {
+        redirectToLogin();
+      }
       throw err;
     }
     return data;
@@ -141,14 +162,18 @@
         const csrfData = await apiFetch('/api/v1/auth/csrf-token');
         csrfToken = csrfData.csrf_token || csrfData.csrfToken;
       } catch (e) {
+        if (e && (e.status === 401 || Number(e.status) === 401)) {
+          redirectToLogin();
+          return;
+        }
         console.warn('CSRF token fetch warning:', e);
       }
 
       renderUserProfile(currentUser);
       await loadLeaveRecords();
     } catch (err) {
-      if (err.status === 401 || err.code === 'UNAUTHENTICATED' || err.code === 'UNAUTHORIZED') {
-        window.location.href = '/login.html';
+      if (err && (err.status === 401 || Number(err.status) === 401)) {
+        redirectToLogin();
         return;
       }
       showErrorState(formatSafeErrorMessage(err));
@@ -219,6 +244,10 @@
         renderMyLeavesView(cachedLeaveRecords);
       }
     } catch (err) {
+      if (err && (err.status === 401 || Number(err.status) === 401)) {
+        redirectToLogin();
+        return;
+      }
       showErrorState(formatSafeErrorMessage(err));
     }
   }
@@ -517,6 +546,10 @@
       showAlert('Leave request cancelled successfully.', 'success');
       await loadLeaveRecords();
     } catch (err) {
+      if (err && (err.status === 401 || Number(err.status) === 401)) {
+        redirectToLogin();
+        return;
+      }
       showAlert(`Cancellation failed: ${formatSafeErrorMessage(err)}`, 'error');
     } finally {
       cancellingLeaveIds.delete(leaveId);
@@ -603,6 +636,10 @@
       document.getElementById('form-leave-request')?.reset();
       await loadLeaveRecords();
     } catch (err) {
+      if (err && (err.status === 401 || Number(err.status) === 401)) {
+        redirectToLogin();
+        return;
+      }
       showFormError(formatSafeErrorMessage(err));
     } finally {
       isSubmittingLeave = false;
@@ -777,6 +814,10 @@
     renderMyLeavesView,
     handleCreateLeave,
     handleCancelLeave,
+    loadLeaveRecords,
+    initSessionAndProfile,
+    apiFetch,
+    redirectToLogin,
     setApiFetch: (fn) => { customApiFetch = fn; },
     resetApiFetch: () => { customApiFetch = null; },
     setCurrentUser: (u) => { currentUser = u; },
