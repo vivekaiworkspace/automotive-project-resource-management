@@ -289,6 +289,15 @@ export async function evaluateUserWorkload({
   const rangeStart = weeklyBuckets[0].weekStart;
   const rangeEnd = weeklyBuckets[weeklyBuckets.length - 1].weekEnd;
 
+  // Compute full calendar week bounds to encompass weekend intervals
+  const lastBucketMon = parseCleanDate(weeklyBuckets[weeklyBuckets.length - 1].weekStart);
+  const lastBucketSun = new Date(lastBucketMon);
+  lastBucketSun.setDate(lastBucketSun.getDate() + 6);
+  const calendarMaxDate = formatDateYmd(lastBucketSun);
+
+  const queryMinDate = startDate < rangeStart ? startDate : rangeStart;
+  const queryMaxDate = endDate > calendarMaxDate ? endDate : calendarMaxDate;
+
   // 1. Fetch cross-project active assignments intersecting the evaluated range
   let assignSql = `
     SELECT 
@@ -312,7 +321,7 @@ export async function evaluateUserWorkload({
       AND act.archived_at IS NULL
       AND p.status NOT IN ('ARCHIVED', 'CANCELLED')
   `;
-  const assignParams = [userId, rangeStart, rangeEnd];
+  const assignParams = [userId, queryMinDate, queryMaxDate];
   if (excludeAssignmentId) {
     assignSql += ` AND a.id != $4`;
     assignParams.push(excludeAssignmentId);
@@ -324,8 +333,8 @@ export async function evaluateUserWorkload({
   // Compute overall interval bounds needed across the evaluated range,
   // proposed interval, and all intersecting active assignments to ensure
   // assignment denominators are evaluated over their complete valid-day sets.
-  let unavailMinDate = startDate < rangeStart ? startDate : rangeStart;
-  let unavailMaxDate = endDate > rangeEnd ? endDate : rangeEnd;
+  let unavailMinDate = queryMinDate;
+  let unavailMaxDate = queryMaxDate;
 
   for (const a of existingAssignments) {
     if (a.start_date < unavailMinDate) unavailMinDate = a.start_date;
@@ -463,12 +472,22 @@ export async function evaluateUserWorkload({
     let weekHasUnschedulableAssignment = false;
     const weeklyAssignments = [];
 
+    const curMonDate = parseCleanDate(w.weekStart);
+    const curSunDate = new Date(curMonDate);
+    curSunDate.setDate(curSunDate.getDate() + 6);
+    const wCalendarEnd = formatDateYmd(curSunDate);
+
     for (const a of existingAssignments) {
-      const aStart = a.start_date > w.weekStart ? a.start_date : w.weekStart;
-      const aEnd = a.end_date < w.weekEnd ? a.end_date : w.weekEnd;
-      if (aStart <= aEnd) {
+      const inCalendarWeek = a.start_date <= wCalendarEnd && a.end_date >= w.weekStart;
+      if (inCalendarWeek) {
+        const aWorkStart = a.start_date > w.weekStart ? a.start_date : w.weekStart;
+        const aWorkEnd = a.end_date < w.weekEnd ? a.end_date : w.weekEnd;
+        const hasWorkingDaysOverlap = aWorkStart <= aWorkEnd;
+
         const totalValidDays = countValidWorkingDays(a.start_date, a.end_date, unavailableWorkingDates);
-        const overlapValidDays = countValidWorkingDays(aStart, aEnd, unavailableWorkingDates);
+        const overlapValidDays = hasWorkingDaysOverlap
+          ? countValidWorkingDays(aWorkStart, aWorkEnd, unavailableWorkingDates)
+          : 0;
         let hoursInWeek = 0;
         let isZeroValidDayUnschedulable = false;
 
@@ -479,7 +498,9 @@ export async function evaluateUserWorkload({
           // Standard calendar fallback solely to represent unschedulable load.
           isZeroValidDayUnschedulable = true;
           const standardTotalDays = getWorkingDaysInRange(a.start_date, a.end_date);
-          const standardOverlapDays = getWorkingDaysInRange(aStart, aEnd);
+          const standardOverlapDays = hasWorkingDaysOverlap
+            ? getWorkingDaysInRange(aWorkStart, aWorkEnd)
+            : 0;
           if (standardTotalDays > 0) {
             hoursInWeek = (standardOverlapDays / standardTotalDays) * Number(a.planned_hours);
           } else {
@@ -507,18 +528,25 @@ export async function evaluateUserWorkload({
     let proposedHoursThisWeek = 0;
     let proposedIsZeroValidDays = false;
     if (proposedPlannedHours > 0) {
-      const pStart = startDate > w.weekStart ? startDate : w.weekStart;
-      const pEnd = endDate < w.weekEnd ? endDate : w.weekEnd;
-      if (pStart <= pEnd) {
+      const pInCalendarWeek = startDate <= wCalendarEnd && endDate >= w.weekStart;
+      if (pInCalendarWeek) {
+        const pWorkStart = startDate > w.weekStart ? startDate : w.weekStart;
+        const pWorkEnd = endDate < w.weekEnd ? endDate : w.weekEnd;
+        const pHasWorkingDaysOverlap = pWorkStart <= pWorkEnd;
+
         if (totalProposedWorkingDays > 0) {
-          const weekOverlapProposedValidDays = countValidWorkingDays(pStart, pEnd, unavailableWorkingDates);
+          const weekOverlapProposedValidDays = pHasWorkingDaysOverlap
+            ? countValidWorkingDays(pWorkStart, pWorkEnd, unavailableWorkingDates)
+            : 0;
           proposedHoursThisWeek = (weekOverlapProposedValidDays / totalProposedWorkingDays) * proposedPlannedHours;
         } else {
           // Zero valid working days across the entire proposed interval.
           // Use standard calendar fallback to represent unschedulable proposed load for conflict accounting without duplication.
           proposedIsZeroValidDays = true;
           const standardProposedTotalDays = getWorkingDaysInRange(startDate, endDate);
-          const standardProposedOverlapDays = getWorkingDaysInRange(pStart, pEnd);
+          const standardProposedOverlapDays = pHasWorkingDaysOverlap
+            ? getWorkingDaysInRange(pWorkStart, pWorkEnd)
+            : 0;
           if (standardProposedTotalDays > 0) {
             proposedHoursThisWeek = (standardProposedOverlapDays / standardProposedTotalDays) * proposedPlannedHours;
           } else {
@@ -532,10 +560,10 @@ export async function evaluateUserWorkload({
     const evalRes = evaluateUtilization(totalLoad, netCapacity);
 
     // Explicitly identify weeks containing an unschedulable assignment or proposed load as CAPACITY_CONFLICT
-    if ((weekHasUnschedulableAssignment || proposedIsZeroValidDays) && (totalLoad > 0 || netCapacity === 0)) {
+    if (weekHasUnschedulableAssignment || proposedIsZeroValidDays) {
       evalRes.status = 'CAPACITY_CONFLICT';
       evalRes.label = CONFLICT_LEVELS.CAPACITY_CONFLICT.label;
-      if (netCapacity === 0 || evalRes.plannedUtilizationPercent < 100.0) {
+      if (netCapacity === 0 && (totalLoad > 0 || weekHasUnschedulableAssignment || proposedIsZeroValidDays)) {
         evalRes.plannedUtilizationPercent = 999.99;
       }
     }
@@ -570,9 +598,6 @@ export async function evaluateUserWorkload({
 
   if (totalProposedWorkingDays === 0 && proposedPlannedHours > 0) {
     hasHardConflict = true;
-    if (peakUtilization < 999.99) {
-      peakUtilization = 999.99;
-    }
   }
 
   let conflictStatus = 'OK';

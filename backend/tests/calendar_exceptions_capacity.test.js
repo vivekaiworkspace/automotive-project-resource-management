@@ -280,7 +280,7 @@ describe('Calendar Exceptions in Capacity Evaluation Suite', () => {
   test('TC-D: Weekend exceptions have no capacity deduction under Mon-Fri calendar', async () => {
     await query(`
       INSERT INTO member_calendar_exceptions (member_id, exception_date, reason)
-      VALUES 
+      VALUES
         ($1, '2026-11-14', 'TC-D Saturday Exception'),
         ($1, '2026-11-15', 'TC-D Sunday Exception')
     `, [member1Record.id]);
@@ -323,7 +323,7 @@ describe('Calendar Exceptions in Capacity Evaluation Suite', () => {
   test('TC-F: Full-week exceptions produce exactly zero net capacity', async () => {
     await query(`
       INSERT INTO member_calendar_exceptions (member_id, exception_date, reason)
-      VALUES 
+      VALUES
         ($1, '2026-11-09', 'TC-F Mon'),
         ($1, '2026-11-10', 'TC-F Tue'),
         ($1, '2026-11-11', 'TC-F Wed'),
@@ -347,7 +347,7 @@ describe('Calendar Exceptions in Capacity Evaluation Suite', () => {
   test('TC-G: Positive load with zero net capacity triggers existing hard-conflict behavior', async () => {
     await query(`
       INSERT INTO member_calendar_exceptions (member_id, exception_date, reason)
-      VALUES 
+      VALUES
         ($1, '2026-11-09', 'TC-G Mon'),
         ($1, '2026-11-10', 'TC-G Tue'),
         ($1, '2026-11-11', 'TC-G Wed'),
@@ -477,7 +477,7 @@ describe('Calendar Exceptions in Capacity Evaluation Suite', () => {
   test('TC-K: Assignment interval with zero valid working days handles conflict safely without NaN', async () => {
     await query(`
       INSERT INTO member_calendar_exceptions (member_id, exception_date, reason)
-      VALUES 
+      VALUES
         ($1, '2026-11-09', 'TC-K Mon'),
         ($1, '2026-11-10', 'TC-K Tue'),
         ($1, '2026-11-11', 'TC-K Wed'),
@@ -930,5 +930,183 @@ describe('Calendar Exceptions in Capacity Evaluation Suite', () => {
     } finally {
       await query('DELETE FROM members WHERE id = $1', [conflictMemberId]);
     }
+  });
+
+  // W. Existing positive-effort weekend-only assignment in containing week
+  test('TC-W: Existing positive-effort weekend-only assignment preserves effort in conflict structure and cannot return OK', async () => {
+    // Weekend-only assignment: Sat 2026-11-14 to Sun 2026-11-15 (16.0h effort)
+    const assignRes = await query(`
+      INSERT INTO assignments (activity_id, user_id, start_date, end_date, planned_hours, status)
+      VALUES ($1, $2, '2026-11-14', '2026-11-15', 16.00, 'ACTIVE')
+      RETURNING *;
+    `, [ACT_INT_1, member1User.id]);
+    const existingAssignment = assignRes.rows[0];
+
+    // Evaluate the containing week: Mon 2026-11-09 to Fri 2026-11-13 (netCapacity = 40.0h)
+    const res = await evaluateUserWorkload({
+      userId: member1User.id,
+      startDate: '2026-11-09',
+      endDate: '2026-11-13',
+      proposedPlannedHours: 0,
+    });
+
+    // 1. Conflict structure preserves full stored planned effort
+    assert.equal(res.conflictingAssignments.length, 1);
+    assert.equal(res.conflictingAssignments[0].assignment_id, existingAssignment.id);
+    assert.equal(res.conflictingAssignments[0].planned_hours, '16.00', 'Full stored planned effort preserved');
+    assert.equal(res.conflictingAssignments[0].start_date, '2026-11-14');
+    assert.equal(res.conflictingAssignments[0].end_date, '2026-11-15');
+
+    // 2. Containing week representation: hoursInWeek=0 (no invented allocation), positive net capacity, real utilization
+    assert.equal(res.weeks.length, 1);
+    const week = res.weeks[0];
+    assert.equal(week.netCapacityHours, 40.0);
+    assert.equal(week.existingHours, 0.0, 'No invented weekly allocation for weekend-only span');
+    assert.equal(week.weeklyAssignments.length, 1);
+    assert.equal(week.weeklyAssignments[0].assignment_id, existingAssignment.id);
+    assert.equal(week.weeklyAssignments[0].hoursInWeek, 0.0);
+    assert.equal(week.utilizationPercent, 0.0, 'Real utilization computed from actual load and positive capacity, not forced to 999.99');
+    assert.equal(week.status, 'CAPACITY_CONFLICT', 'Week classified as CAPACITY_CONFLICT');
+
+    // 3. Evaluation cannot return OK; conflict aggregation does not downgrade below 100% utilization
+    assert.equal(res.conflictStatus, 'CAPACITY_CONFLICT', 'Evaluation cannot return OK');
+    assert.equal(res.peakUtilizationPercent, 0.0, 'Real peak utilization retained');
+  });
+
+  // X. Unschedulable assignment inside a week with positive remaining capacity
+  test('TC-X: No-valid-day assignment inside week with positive remaining capacity retains real utilization and conflict classification', async () => {
+    // Existing assignment spanning Wed 2026-11-11 to Fri 2026-11-13 (8.0h effort)
+    const assignRes = await query(`
+      INSERT INTO assignments (activity_id, user_id, start_date, end_date, planned_hours, status)
+      VALUES ($1, $2, '2026-11-11', '2026-11-13', 8.00, 'ACTIVE')
+      RETURNING *;
+    `, [ACT_INT_1, member1User.id]);
+    const existingAssignment = assignRes.rows[0];
+
+    // Exceptions on Wed, Thu, Fri -> Mon and Tue remain valid working days (2 days = 16.0h net capacity)
+    await query(`
+      INSERT INTO member_calendar_exceptions (member_id, exception_date, reason)
+      VALUES
+        ($1, '2026-11-11', 'TC-X Wed'),
+        ($1, '2026-11-12', 'TC-X Thu'),
+        ($1, '2026-11-13', 'TC-X Fri')
+    `, [member1Record.id]);
+
+    const res = await evaluateUserWorkload({
+      userId: member1User.id,
+      startDate: '2026-11-09',
+      endDate: '2026-11-13',
+      proposedPlannedHours: 0,
+    });
+
+    assert.equal(res.weeks.length, 1);
+    const week = res.weeks[0];
+
+    // Positive remaining capacity: 2 working days * 8h = 16.0h
+    assert.equal(week.netCapacityHours, 16.0);
+    assert.equal(week.existingHours, 8.0, 'Fallback standard allocation represents unschedulable effort');
+
+    // Real utilization computed from actual load (8.0h) / positive capacity (16.0h) = 50.0%
+    assert.equal(week.utilizationPercent, 50.0, 'Real utilization retained (50.0%), not forced to 999.99');
+    assert.equal(week.status, 'CAPACITY_CONFLICT', 'Explicit unschedulable conflict classification retained');
+
+    // Aggregation retains CAPACITY_CONFLICT without downgrade despite utilization < 100%
+    assert.equal(res.conflictStatus, 'CAPACITY_CONFLICT');
+    assert.equal(res.peakUtilizationPercent, 50.0, 'Peak utilization reflects real utilization');
+
+    // Stored effort strictly preserved in conflictingAssignments
+    assert.equal(res.conflictingAssignments.length, 1);
+    assert.equal(res.conflictingAssignments[0].assignment_id, existingAssignment.id);
+    assert.equal(res.conflictingAssignments[0].planned_hours, '8.00');
+  });
+
+  // Y. Zero-capacity positive-load sentinel behavior unchanged
+  test('TC-Y: Zero-capacity positive-load sentinel behavior remains unchanged at 999.99', async () => {
+    // All 5 days unavailable via calendar exceptions -> netCapacity = 0.0h
+    await query(`
+      INSERT INTO member_calendar_exceptions (member_id, exception_date, reason)
+      VALUES
+        ($1, '2026-11-09', 'TC-Y 1'), ($1, '2026-11-10', 'TC-Y 2'),
+        ($1, '2026-11-11', 'TC-Y 3'), ($1, '2026-11-12', 'TC-Y 4'),
+        ($1, '2026-11-13', 'TC-Y 5')
+    `, [member1Record.id]);
+
+    // Existing assignment for 8.0h in zero-capacity week
+    await query(`
+      INSERT INTO assignments (activity_id, user_id, start_date, end_date, planned_hours, status)
+      VALUES ($1, $2, '2026-11-09', '2026-11-13', 8.00, 'ACTIVE')
+    `, [ACT_INT_1, member1User.id]);
+
+    const res = await evaluateUserWorkload({
+      userId: member1User.id,
+      startDate: '2026-11-09',
+      endDate: '2026-11-13',
+      proposedPlannedHours: 0,
+    });
+
+    const week = res.weeks[0];
+    assert.equal(week.netCapacityHours, 0.0);
+    assert.equal(week.utilizationPercent, 999.99, 'Zero-capacity positive-load retains 999.99 sentinel');
+    assert.equal(week.status, 'CAPACITY_CONFLICT');
+    assert.equal(res.conflictStatus, 'CAPACITY_CONFLICT');
+    assert.equal(res.peakUtilizationPercent, 999.99);
+  });
+
+  // Z. Full-range and single-week invariance and effort conservation retained
+  test('TC-Z: Multi-week evaluation containing weekend-only and valid assignments retains invariance and effort conservation', async () => {
+    // Week 1: Weekend-only assignment (Nov 14 to Nov 15, 12.0h)
+    await query(`
+      INSERT INTO assignments (activity_id, user_id, start_date, end_date, planned_hours, status)
+      VALUES ($1, $2, '2026-11-14', '2026-11-15', 12.00, 'ACTIVE')
+    `, [ACT_INT_1, member1User.id]);
+
+    // Week 2: Standard assignment (Nov 16 to Nov 20, 20.0h)
+    await query(`
+      INSERT INTO assignments (activity_id, user_id, start_date, end_date, planned_hours, status)
+      VALUES ($1, $2, '2026-11-16', '2026-11-20', 20.00, 'ACTIVE')
+    `, [ACT_INT_2, member1User.id]);
+
+    // Query 1: Full 2-week range (Nov 09 to Nov 20)
+    const resFull = await evaluateUserWorkload({
+      userId: member1User.id,
+      startDate: '2026-11-09',
+      endDate: '2026-11-20',
+      proposedPlannedHours: 0,
+    });
+
+    assert.equal(resFull.weeks.length, 2);
+    const fullWeek1 = resFull.weeks[0];
+    const fullWeek2 = resFull.weeks[1];
+
+    assert.equal(fullWeek1.existingHours, 0.0);
+    assert.equal(fullWeek1.status, 'CAPACITY_CONFLICT');
+    assert.equal(fullWeek2.existingHours, 20.0);
+    assert.equal(fullWeek2.utilizationPercent, 50.0);
+    assert.equal(fullWeek2.status, 'OK');
+    assert.equal(resFull.conflictStatus, 'CAPACITY_CONFLICT');
+
+    // Query 2: Single-week query for Week 1 (Nov 09 to Nov 13)
+    const resSingle1 = await evaluateUserWorkload({
+      userId: member1User.id,
+      startDate: '2026-11-09',
+      endDate: '2026-11-13',
+      proposedPlannedHours: 0,
+    });
+    const singleWeek1 = resSingle1.weeks[0];
+
+    assert.equal(singleWeek1.existingHours, fullWeek1.existingHours, 'Week 1 existingHours invariant');
+    assert.equal(singleWeek1.status, fullWeek1.status, 'Week 1 status invariant');
+
+    // Query 3: Single-week query for Week 2 (Nov 16 to Nov 20)
+    const resSingle2 = await evaluateUserWorkload({
+      userId: member1User.id,
+      startDate: '2026-11-16',
+      endDate: '2026-11-20',
+      proposedPlannedHours: 0,
+    });
+    const singleWeek2 = resSingle2.weeks[0];
+
+    assert.equal(singleWeek2.existingHours, fullWeek2.existingHours, 'Week 2 existingHours invariant');
+    assert.equal(singleWeek2.status, fullWeek2.status, 'Week 2 status invariant');
   });
 });
